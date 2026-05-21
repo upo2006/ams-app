@@ -204,7 +204,7 @@
   <footer class="mt-2 pb-4">
     <div class="max-w-[750px] mx-auto px-4">
       <div class="py-6 text-center bg-gradient-to-r from-red-700 to-red-600 text-white rounded-xl shadow-lg">
-        <p id="footer-text" class="text-xs text-white/90 mt-1">© AMS</p>
+        <p id="footer-text" class="text-xs text-white/90 mt-1">© ATTENDANCE MANAGEMENT SYSTEM</p>
       </div>
     </div>
   </footer>
@@ -329,7 +329,7 @@
       </div>
       <div>
         <label class="block text-gray-700 text-sm font-bold mb-1">フッターテキスト</label>
-        <input type="text" id="setup-footer-text" placeholder="入力なし → © AMS"
+        <input type="text" id="setup-footer-text" placeholder="入力なし → © ATTENDANCE MANAGEMENT SYSTEM"
           class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
         <p class="text-xs text-gray-500 mt-1.5">
           💡 例：<span class="font-medium">© ○○FC Since 2018</span><br>
@@ -954,7 +954,7 @@
       document.title = cfg.team_name + ' AMS';
     }
     const footerEl = document.getElementById('footer-text');
-    if (footerEl) footerEl.textContent = cfg.footer_text || '© AMS';
+    if (footerEl) footerEl.textContent = cfg.footer_text || '© ATTENDANCE MANAGEMENT SYSTEM';
     if (cfg.primary_color) applyColor(cfg.primary_color);
   }
 
@@ -1040,7 +1040,7 @@
     btn.disabled = false; txt.classList.remove('hidden'); load.classList.add('hidden');
     if (!testOk) return;
 
-    const newCfg = { team_name: teamName, supabase_url: url.replace(/\/$/, ''), supabase_anon_key: key, primary_color: color, footer_text: footer || '© AMS' };
+    const newCfg = { team_name: teamName, supabase_url: url.replace(/\/$/, ''), supabase_anon_key: key, primary_color: color, footer_text: footer || '© ATTENDANCE MANAGEMENT SYSTEM' };
 
     if (calSetupMode === 'new') {
       const teams = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
