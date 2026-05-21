@@ -784,6 +784,45 @@
   let viewMode = 'month';
   let currentDetailEvent = null;
   let isAdmin = false;
+
+  // ─── サブスクリプション管理Supabase ──────────────────────────────────
+  const AMS_AUTH_URL      = 'https://ggmtlfhctezozcdohzcm.supabase.co';
+  const AMS_AUTH_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdnbXRsZmhjdGV6b3pjZG9oemNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMTIxMDQsImV4cCI6MjA4ODY4ODEwNH0.vpU78D4jYRdGPUTbYvG-vI_KMRwLofUJou_TmZ0FXBo';
+  let _amsAuthClient = null;
+  function getAmsAuthClient() {
+    if (!_amsAuthClient) {
+      _amsAuthClient = window.supabase.createClient(AMS_AUTH_URL, AMS_AUTH_ANON_KEY);
+    }
+    return _amsAuthClient;
+  }
+
+  const AMS_SUB_CACHE_KEY = 'ams_sub_cache';
+  function getAmsSubCache(email) {
+    try {
+      const c = JSON.parse(localStorage.getItem(AMS_SUB_CACHE_KEY) || 'null');
+      if (c && c.email === email && c.ok && Date.now() < c.exp) return true;
+    } catch(e) {}
+    return null;
+  }
+  function setAmsSubCache(email, ok) {
+    try {
+      localStorage.setItem(AMS_SUB_CACHE_KEY, JSON.stringify({ email, ok, exp: Date.now() + 3600000 }));
+    } catch(e) {}
+  }
+
+  async function checkAmsSubscription(email) {
+    if (getAmsSubCache(email) === true) return true;
+    try {
+      const { data, error } = await getAmsAuthClient()
+        .from('subscriptions').select('status, plan').eq('email', email).maybeSingle();
+      if (error) return true; // 通信エラーは許可
+      if (!data) return false;
+      // ams単体 または セットプランのみ許可
+      const ok = data.status === 'active' && (data.plan === 'ams' || data.plan === 'set');
+      if (ok) setAmsSubCache(email, ok);
+      return ok;
+    } catch(e) { return true; }
+  }
   // ─── モード判定（ページロード時に確定） ────────────────────────────────
   const _urlP        = new URLSearchParams(location.search);
   const isFamilyMode = _urlP.get('view') === 'parent';
@@ -1209,6 +1248,20 @@
         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 30000))
       ]);
       if (error) { setStatus(status, 'メールアドレスまたはパスワードが違います', 'error'); return; }
+      // サブスクリプション確認
+      setStatus(status, 'サブスクリプション確認中...', 'info');
+      let subOk = false;
+      try {
+        subOk = await Promise.race([
+          checkAmsSubscription(email),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))
+        ]);
+      } catch(e) { subOk = true; } // タイムアウトは許可
+      if (!subOk) {
+        await supabaseClient.auth.signOut().catch(() => {});
+        setStatus(status, '有効なサブスクリプションが見つかりません', 'error');
+        return;
+      }
       closeLoginModal();
       setAdminMode(true);
       await loadEvents();
