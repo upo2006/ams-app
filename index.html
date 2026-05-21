@@ -784,6 +784,7 @@
   let viewMode = 'month';
   let currentDetailEvent = null;
   let isAdmin = false;
+  let isFromSetupGuide = false; // セットアップガイドからのリンク（?setup=1）
 
   // ─── サブスクリプション管理Supabase ──────────────────────────────────
   const AMS_AUTH_URL      = 'https://ggmtlfhctezozcdohzcm.supabase.co';
@@ -1243,6 +1244,31 @@
     if (!email || !password) { setStatus(status, 'メールアドレスとパスワードを入力してください', 'error'); return; }
     btn.disabled = true; txt.classList.add('hidden'); load.classList.remove('hidden');
     try {
+      // ─── セットアップガイドからのログイン（?setup=1）───────────────────
+      if (isFromSetupGuide) {
+        const { error } = await Promise.race([
+          getAmsAuthClient().auth.signInWithPassword({ email, password }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 30000))
+        ]);
+        if (error) { setStatus(status, 'メールアドレスまたはパスワードが違います', 'error'); return; }
+        setStatus(status, 'サブスクリプション確認中...', 'info');
+        let subOk = false;
+        try {
+          subOk = await Promise.race([
+            checkAmsSubscription(email),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))
+          ]);
+        } catch(e) { subOk = true; }
+        if (!subOk) {
+          await getAmsAuthClient().auth.signOut().catch(() => {});
+          setStatus(status, '有効なサブスクリプションが見つかりません', 'error');
+          return;
+        }
+        closeLoginModal();
+        openSetupModal();
+        return;
+      }
+      // ─── 通常ログイン ──────────────────────────────────────────────────
       const { error } = await Promise.race([
         supabaseClient.auth.signInWithPassword({ email, password }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 30000))
@@ -2610,11 +2636,12 @@
         document.getElementById('btn-list').className  = `flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap bg-red-500 text-white`;
       }
 
-      // セットアップガイドからのリンク（?setup=1）：既存データを表示せずに接続設定を開く
-      if (params.get('setup') === '1') {
+      // セットアップガイドからのリンク（?setup=1）：ログイン画面 → 接続設定（MRSと同じ動作）
+      isFromSetupGuide = params.get('setup') === '1';
+      if (isFromSetupGuide) {
         document.getElementById('loading-screen').classList.add('hidden');
         setAdminMode(false);
-        openSetupModal();
+        openLoginModal();
         return;
       }
 
