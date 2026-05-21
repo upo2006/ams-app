@@ -1,0 +1,2618 @@
+<!doctype html>
+<html lang="ja" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>カレンダー</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary:      #c0392b;
+      --primary-dark: #922b21;
+      --primary-mid:  #a93226;
+      --primary-light:#e74c3c;
+    }
+    * { font-family: 'Noto Sans JP', sans-serif; }
+    body { box-sizing: border-box; }
+    .modal-backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
+    .btn-primary { transition: all 0.2s ease; }
+    .btn-primary:hover { transform: scale(1.02); }
+
+    .bg-primary       { background-color: var(--primary) !important; }
+    .bg-primary-dark  { background-color: var(--primary-dark) !important; }
+    .bg-red-500, .hover\:bg-red-500:hover   { background-color: var(--primary)      !important; }
+    .bg-red-600, .hover\:bg-red-600:hover   { background-color: var(--primary-mid)  !important; }
+    .bg-red-700, .hover\:bg-red-700:hover   { background-color: var(--primary-dark) !important; }
+    .from-red-700 { --tw-gradient-from: var(--primary-dark) !important; }
+    .from-red-600 { --tw-gradient-from: var(--primary-mid)  !important; }
+    .to-red-500   { --tw-gradient-to:   var(--primary)      !important; }
+    .to-red-600   { --tw-gradient-to:   var(--primary-mid)  !important; }
+    .text-red-600 { color: var(--primary-mid) !important; }
+    .text-red-500 { color: var(--primary)     !important; }
+    .focus\:ring-red-500:focus { --tw-ring-color: var(--primary) !important; }
+    .border-red-500 { border-color: var(--primary) !important; }
+
+    #settings-menu, #settings-menu button { color: #374151; }
+    #settings-menu .text-red-600   { color: #dc2626 !important; }
+    #settings-menu .text-blue-600  { color: #2563eb !important; }
+    #settings-menu .text-green-600 { color: #16a34a !important; }
+
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+    .cal-day { min-height: 80px; }
+    @media (max-width: 640px) { .cal-day { min-height: 56px; } }
+    .event-pill {
+      display: block; font-size: 11px; line-height: 1.3;
+      padding: 1px 4px; border-radius: 3px; margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      cursor: pointer; color: #fff; font-weight: 600;
+    }
+    /* 時間ピッカー */
+    .tp-digit { width:2.75rem; height:3.25rem; background:#fff; border:2px solid #d1d5db; border-radius:0.75rem; display:flex; align-items:center; justify-content:center; font-size:1.375rem; font-weight:900; color:#1f2937; transition:all .15s; }
+    .tp-digit.active { border-color:#dc2626; background:#fef2f2; color:#dc2626; }
+    .tp-num { background:#f3f4f6; border:none; border-radius:0.75rem; padding:.875rem 0; font-size:1.25rem; font-weight:700; color:#1f2937; cursor:pointer; transition:all .15s; width:100%; }
+    .tp-num:active { background:#e5e7eb; transform:scale(.95); }
+    .tp-func { color:#6b7280; font-size:1.1rem; }
+    .tp-now-btn { background:#fee2e2; color:#dc2626; font-size:.85rem; font-weight:900; }
+    .tp-now-btn:active { background:#fecaca; }
+    .tp-ampm { background:#f3f4f6; color:#6b7280; border:2px solid transparent; transition:all .15s; cursor:pointer; }
+    .tp-ampm.active { background:#fef2f2; color:#dc2626; border-color:#dc2626; }
+    .tp-ampm:active { opacity:.8; }
+
+    /* 回答テーブル */
+    .resp-table th { background:#f9fafb; font-size:0.75rem; font-weight:700; color:#6b7280; padding:8px 10px; text-align:center; border-bottom:2px solid #e5e7eb; white-space:nowrap; }
+    .resp-table td { font-size:0.8rem; padding:8px 10px; text-align:center; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
+    .resp-table tr:last-child td { border-bottom:none; }
+    .resp-table tr:hover td { background:#f9fafb; }
+    .badge { display:inline-block; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:999px; white-space:nowrap; }
+
+    /* 回答フォーム ラジオボタン */
+    .cal-radio-btn {
+      width: 100%; padding: 0.5rem 0.15rem; border-radius: 0.75rem;
+      border: 2px solid #e5e7eb; background: #fff; color: #4b5563;
+      font-weight: 700; font-size: min(0.8rem, 3.5vw); cursor: pointer;
+      transition: all 0.15s; text-align: center; display: block; white-space: nowrap;
+    }
+    .cal-radio-btn:hover { border-color: #d1d5db; background: #f9fafb; }
+    .cal-radio-btn[data-selected="1"][data-color="green"]  { border-color:#22c55e; background:#f0fdf4; color:#15803d; }
+    .cal-radio-btn[data-selected="1"][data-color="red"]    { border-color:#ef4444; background:#fef2f2; color:#dc2626; }
+    .cal-radio-btn[data-selected="1"][data-color="blue"]   { border-color:#3b82f6; background:#eff6ff; color:#1d4ed8; }
+    .cal-radio-btn[data-selected="1"][data-color="amber"]  { border-color:#f59e0b; background:#fffbeb; color:#b45309; }
+    .cal-radio-btn[data-selected="1"][data-color="gray"]   { border-color:#6b7280; background:#f9fafb; color:#374151; }
+  </style>
+</head>
+<body class="h-full bg-gray-50">
+<div id="app" class="min-h-full">
+
+  <!-- ローディング -->
+  <div id="loading-screen" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-[150] gap-4">
+    <div class="text-5xl">📅</div>
+    <div class="w-8 h-8 border-4 border-red-200 border-t-red-500 rounded-full animate-spin"></div>
+  </div>
+
+  <!-- ヘッダー -->
+  <header class="p-4">
+    <div class="max-w-[750px] mx-auto bg-gradient-to-r from-red-700 to-red-600 text-white px-4 py-3 shadow-lg rounded-2xl">
+      <div class="flex items-center gap-3">
+        <span class="text-3xl shrink-0">📅</span>
+        <div class="flex-1 min-w-0" style="min-width:0;overflow:hidden">
+          <h1 id="app-team-name" class="font-black leading-tight" style="font-size:min(1.25rem,4.5vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">カレンダー</h1>
+          <div class="flex items-center gap-2 mt-0.5">
+            <p class="text-xs text-white/80" style="letter-spacing:0.12em">CALENDAR</p>
+            <span id="mode-badge" class="text-[0.6rem] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider"></span>
+          </div>
+        </div>
+        <div class="relative shrink-0">
+          <button id="settings-btn" type="button" class="hidden bg-white/15 hover:bg-white/25 text-white text-lg rounded-lg px-3 py-2 transition-colors">⚙️</button>
+          <div id="settings-menu" class="hidden absolute right-0 top-full mt-2 w-52 bg-white text-gray-800 rounded-xl shadow-xl border border-gray-200 overflow-hidden z-40">
+            <button type="button" id="menu-login-btn" onclick="openLoginModal()" class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors font-bold">🔑 ログイン</button>
+            <button type="button" id="open-setup-menu-btn" class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 font-bold">⚙️ 接続設定</button>
+            <button type="button" id="menu-team-btn" onclick="openTeamManager()" class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 font-bold">🏟️ チーム管理</button>
+            <button type="button" id="menu-player-btn" onclick="openCalPlayerListModal()" class="hidden w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 font-bold">👤 選手管理</button>
+            <button type="button" id="menu-admin-link-btn" onclick="openAdminLinkModal()" class="hidden w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 text-red-600 font-bold">🔧 コーチリンク</button>
+            <button type="button" id="menu-parent-link-btn" onclick="openParentLinkModal()" class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 text-green-600 font-bold">🔗 ファミリーリンク</button>
+            <button type="button" id="menu-logout-btn" onclick="handleLogout()" class="hidden w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 font-bold">🚪 ログアウト</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ -->
+  <main class="max-w-[750px] mx-auto px-4 pb-4 space-y-3">
+
+    <!-- ビュー切り替え + 追加ボタン（セットアップ・コーチモード） -->
+    <div id="tab-nav" class="bg-white rounded-2xl shadow border border-gray-200 px-3 py-2.5 flex items-center gap-2">
+      <!-- 均等タブ -->
+      <div class="flex flex-1 bg-gray-100 rounded-xl p-1 gap-1 min-w-0">
+        <button id="btn-month" onclick="setView('month')"
+          class="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold bg-red-500 text-white transition-colors whitespace-nowrap">
+          📅 カレンダー
+        </button>
+        <button id="btn-list" onclick="setView('list')"
+          class="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap">
+          📋 リスト
+        </button>
+      </div>
+      <!-- 新規追加 -->
+      <button id="add-event-btn" onclick="openEventModal()"
+        class="hidden shrink-0 bg-red-500 hover:bg-red-600 text-white font-bold px-3 py-2 rounded-xl text-xs transition-colors whitespace-nowrap">
+        ＋ 新規作成
+      </button>
+    </div>
+    <!-- タイトル型（ファミリーモード） -->
+    <div id="family-nav" class="hidden bg-white rounded-2xl shadow border border-gray-200 px-4 py-3 flex items-center justify-between gap-3" style="margin-top:0">
+      <h2 class="text-base font-black text-gray-800 whitespace-nowrap">📅 カレンダー</h2>
+    </div>
+
+    <!-- カテゴリーフィルター（一行・均等配置） -->
+    <div class="bg-white rounded-2xl shadow border border-gray-200 px-3 py-2">
+      <div id="cat-legend" class="flex items-center gap-1"></div>
+    </div>
+
+    <!-- 月表示 -->
+    <div id="view-month">
+      <div class="bg-white rounded-2xl shadow border border-gray-200 overflow-hidden">
+        <!-- 年月ヘッダー + ナビ -->
+        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <h2 id="month-label" class="text-xl font-black text-gray-800 tracking-tight"></h2>
+          <div class="flex items-center gap-1">
+            <button onclick="changeMonth(-1)"
+              class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 text-xl transition-colors leading-none">‹</button>
+            <button onclick="changeMonth(1)"
+              class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 text-xl transition-colors leading-none">›</button>
+            <button onclick="goToToday()"
+              class="ml-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-2.5 py-1.5 rounded-lg transition-colors">今日</button>
+          </div>
+        </div>
+        <!-- 曜日ヘッダー -->
+        <div class="cal-grid border-b border-gray-100">
+          <div class="text-center text-xs font-bold text-red-500 py-2">日</div>
+          <div class="text-center text-xs font-bold text-gray-500 py-2">月</div>
+          <div class="text-center text-xs font-bold text-gray-500 py-2">火</div>
+          <div class="text-center text-xs font-bold text-gray-500 py-2">水</div>
+          <div class="text-center text-xs font-bold text-gray-500 py-2">木</div>
+          <div class="text-center text-xs font-bold text-gray-500 py-2">金</div>
+          <div class="text-center text-xs font-bold text-blue-500 py-2">土</div>
+        </div>
+        <div id="cal-body" class="cal-grid"></div>
+      </div>
+    </div>
+
+    <!-- リスト表示 -->
+    <div id="view-list" class="hidden space-y-2">
+      <!-- 年月ヘッダー + ナビ（リスト用） -->
+      <div class="bg-white rounded-2xl shadow border border-gray-200 overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-3">
+          <h2 id="month-label-list" class="text-xl font-black text-gray-800 tracking-tight"></h2>
+          <div class="flex items-center gap-1">
+            <button onclick="changeMonth(-1)"
+              class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 text-xl transition-colors leading-none">‹</button>
+            <button onclick="changeMonth(1)"
+              class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 text-xl transition-colors leading-none">›</button>
+            <button onclick="goToToday()"
+              class="ml-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-2.5 py-1.5 rounded-lg transition-colors">今日</button>
+          </div>
+        </div>
+      </div>
+      <div id="list-body"></div>
+    </div>
+
+  </main>
+
+  <footer class="mt-2 pb-4">
+    <div class="max-w-[750px] mx-auto px-4">
+      <div class="py-6 text-center bg-gradient-to-r from-red-700 to-red-600 text-white rounded-xl shadow-lg">
+        <p id="footer-text" class="text-xs text-white/90 mt-1">© CALENDAR</p>
+      </div>
+    </div>
+  </footer>
+
+</div><!-- /app -->
+
+
+<!-- ══ チーム管理モーダル ══════════════════════════════════════════════ -->
+<div id="cal-team-manager-modal" class="fixed inset-0 z-[110] hidden">
+  <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeTeamManager()"></div>
+  <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-md bg-white rounded-2xl shadow-2xl overflow-auto max-h-full">
+    <div class="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-6 py-5 rounded-t-2xl flex items-center justify-between">
+      <h2 class="text-xl font-black">🏟️ チーム管理</h2>
+      <button onclick="closeTeamManager()" class="text-white/70 hover:text-white text-2xl leading-none">×</button>
+    </div>
+    <div class="p-4 space-y-3">
+      <div id="cal-team-list" class="space-y-2"></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ ファミリーリンク発行モーダル ════════════════════════════════════════ -->
+<div id="parent-link-modal" class="fixed inset-0 z-[100] hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeParentLinkModal()"></div>
+  <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg bg-white rounded-2xl shadow-2xl overflow-auto max-h-full">
+    <div class="bg-gradient-to-r from-green-700 to-green-600 text-white px-6 py-5 rounded-t-2xl flex items-center justify-between">
+      <div>
+        <h2 class="text-xl font-black">🔗 ファミリーリンクを発行</h2>
+        <p class="text-sm text-white/80 mt-1">カレンダーを閲覧できるリンク</p>
+      </div>
+      <button onclick="closeParentLinkModal()" class="text-white/70 hover:text-white text-2xl leading-none ml-3 shrink-0">×</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <p class="text-sm text-gray-600">このリンクを保護者に共有すると、接続設定なしでカレンダーを閲覧できます。</p>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-1">アプリの公開URL <span class="text-red-500">*</span></label>
+        <input type="url" id="parent-link-base-url" placeholder="https://your-site.netlify.app/calendar.html"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500" oninput="updateParentLink()">
+      </div>
+      <div id="parent-link-result" class="hidden space-y-2">
+        <label class="block text-gray-700 text-sm font-bold">生成されたリンク</label>
+        <div class="flex gap-2">
+          <input type="text" id="parent-link-url" readonly
+            class="flex-1 bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600 font-mono">
+          <button onclick="copyParentLink()"
+            class="shrink-0 bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-2 rounded-lg text-sm transition-colors">コピー</button>
+        </div>
+        <p id="parent-link-copy-msg" class="hidden text-xs text-green-600 font-medium">✅ クリップボードにコピーしました</p>
+      </div>
+      <div class="bg-green-50 border border-green-200 rounded-xl p-3 text-xs text-green-700 space-y-1">
+        <p class="font-bold">ℹ️ このリンクでできること</p>
+        <p>✅ カレンダーの閲覧（月表示・リスト）</p>
+        <p>✅ イベント詳細の確認・カレンダーへの追加</p>
+        <p>❌ イベントの追加・編集・削除はできません</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ コーチリンク発行モーダル ══════════════════════════════════════ -->
+<div id="admin-link-modal" class="fixed inset-0 z-[100] hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeAdminLinkModal()"></div>
+  <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg bg-white rounded-2xl shadow-2xl overflow-auto max-h-full">
+    <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-6 py-5 rounded-t-2xl flex items-center justify-between">
+      <h2 class="text-xl font-black">🔧 コーチリンクを発行</h2>
+      <button onclick="closeAdminLinkModal()" class="text-white/70 hover:text-white text-2xl leading-none">×</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <p class="text-sm text-gray-600">接続設定済みの管理者用リンクを生成します。このリンクを開くと接続設定なしで即座に使用できます。</p>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-1">アプリの公開URL <span class="text-red-500">*</span></label>
+        <input type="url" id="admin-link-base-url" placeholder="https://your-site.netlify.app/calendar.html"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500" oninput="updateAdminLink()">
+      </div>
+      <div id="admin-link-result" class="hidden space-y-2">
+        <label class="block text-gray-700 text-sm font-bold">生成されたリンク</label>
+        <div class="flex gap-2">
+          <input type="text" id="admin-link-url" readonly
+            class="flex-1 bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600 font-mono">
+          <button onclick="copyAdminLink()"
+            class="shrink-0 bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-lg text-sm transition-colors">コピー</button>
+        </div>
+        <p id="admin-link-copy-msg" class="hidden text-xs text-green-600 font-medium">✅ クリップボードにコピーしました</p>
+      </div>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700 space-y-1">
+        <p class="font-bold">⚠️ セキュリティについて</p>
+        <p>このリンクにはSupabase接続情報が含まれます。信頼できる管理者のみに共有してください。リンクを開いた人はイベントの追加・編集・削除が可能です。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 接続設定モーダル ══════════════════════════════════════════════ -->
+<div id="setup-modal" class="fixed inset-0 z-[100] hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+  <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg bg-white rounded-2xl shadow-2xl overflow-auto max-h-full">
+    <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-6 py-5 rounded-t-2xl flex items-start justify-between">
+      <div>
+        <h2 class="text-xl font-black">⚙️ 接続設定</h2>
+        <p class="text-sm text-white/80 mt-1">Supabaseの接続情報を入力してください</p>
+      </div>
+      <button onclick="document.getElementById('setup-modal').classList.add('hidden')" class="text-white/70 hover:text-white text-2xl leading-none ml-3 shrink-0">×</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-1">チーム名 <span class="text-red-500">*</span></label>
+        <input type="text" id="setup-team-name" placeholder="○○サッカースクール"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+      </div>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-1">Supabase URL <span class="text-red-500">*</span></label>
+        <input type="url" id="setup-url" placeholder="https://xxxxxxxxxx.supabase.co"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-red-500" spellcheck="false">
+      </div>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-1">anon public キー <span class="text-red-500">*</span></label>
+        <input type="text" id="setup-anon-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-red-500" spellcheck="false">
+      </div>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-1">フッターテキスト</label>
+        <input type="text" id="setup-footer-text" placeholder="入力なし → © CALENDAR"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+        <p class="text-xs text-gray-500 mt-1.5">
+          💡 例：<span class="font-medium">© ○○FC Since 2018</span><br>
+          💡 例：<span class="font-medium">"全員で上を目指す"</span>
+        </p>
+      </div>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-2">メインカラー</label>
+        <div class="flex items-center gap-2 mb-3 p-2 bg-gray-50 rounded-xl border border-gray-200">
+          <div id="cal-color-preview-swatch" class="w-9 h-9 rounded-lg border border-gray-300 shadow-inner shrink-0" style="background:#c0392b"></div>
+          <span id="cal-color-preview-hex" class="text-sm font-mono font-bold text-gray-700 flex-1 uppercase">#C0392B</span>
+          <label class="flex items-center gap-1.5 cursor-pointer bg-white border border-gray-300 hover:bg-gray-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-gray-600 transition-colors shrink-0">
+            🎨 カスタム
+            <input type="color" id="setup-primary-color" value="#c0392b" class="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent">
+          </label>
+        </div>
+        <div class="grid grid-cols-8 gap-1.5">
+          <button type="button" onclick="calSetPresetColor('#b71c1c')" data-color="#b71c1c" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#b71c1c" title="ダークレッド"></button>
+          <button type="button" onclick="calSetPresetColor('#c0392b')" data-color="#c0392b" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#c0392b" title="レッド"></button>
+          <button type="button" onclick="calSetPresetColor('#e53935')" data-color="#e53935" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#e53935" title="ブライトレッド"></button>
+          <button type="button" onclick="calSetPresetColor('#f44336')" data-color="#f44336" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#f44336" title="ライトレッド"></button>
+          <button type="button" onclick="calSetPresetColor('#880e4f')" data-color="#880e4f" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#880e4f" title="ダークピンク"></button>
+          <button type="button" onclick="calSetPresetColor('#ad1457')" data-color="#ad1457" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#ad1457" title="ピンク"></button>
+          <button type="button" onclick="calSetPresetColor('#e91e63')" data-color="#e91e63" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#e91e63" title="ローズ"></button>
+          <button type="button" onclick="calSetPresetColor('#f06292')" data-color="#f06292" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#f06292" title="ライトピンク"></button>
+          <button type="button" onclick="calSetPresetColor('#4a148c')" data-color="#4a148c" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#4a148c" title="ダークパープル"></button>
+          <button type="button" onclick="calSetPresetColor('#7b1fa2')" data-color="#7b1fa2" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#7b1fa2" title="パープル"></button>
+          <button type="button" onclick="calSetPresetColor('#8e44ad')" data-color="#8e44ad" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#8e44ad" title="バイオレット"></button>
+          <button type="button" onclick="calSetPresetColor('#5e35b1')" data-color="#5e35b1" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#5e35b1" title="インディゴ"></button>
+          <button type="button" onclick="calSetPresetColor('#1a237e')" data-color="#1a237e" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#1a237e" title="ダークネイビー"></button>
+          <button type="button" onclick="calSetPresetColor('#1565c0')" data-color="#1565c0" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#1565c0" title="ダークブルー"></button>
+          <button type="button" onclick="calSetPresetColor('#0d47a1')" data-color="#0d47a1" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#0d47a1" title="ロイヤルブルー"></button>
+          <button type="button" onclick="calSetPresetColor('#2980b9')" data-color="#2980b9" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#2980b9" title="ブルー"></button>
+          <button type="button" onclick="calSetPresetColor('#006064')" data-color="#006064" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#006064" title="ダークシアン"></button>
+          <button type="button" onclick="calSetPresetColor('#00695c')" data-color="#00695c" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#00695c" title="ティール"></button>
+          <button type="button" onclick="calSetPresetColor('#004d40')" data-color="#004d40" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#004d40" title="ダークグリーン"></button>
+          <button type="button" onclick="calSetPresetColor('#1b5e20')" data-color="#1b5e20" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#1b5e20" title="フォレスト"></button>
+          <button type="button" onclick="calSetPresetColor('#1a6b3c')" data-color="#1a6b3c" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#1a6b3c" title="グリーン"></button>
+          <button type="button" onclick="calSetPresetColor('#2e7d32')" data-color="#2e7d32" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#2e7d32" title="ミドルグリーン"></button>
+          <button type="button" onclick="calSetPresetColor('#388e3c')" data-color="#388e3c" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#388e3c" title="ライトグリーン"></button>
+          <button type="button" onclick="calSetPresetColor('#43a047')" data-color="#43a047" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#43a047" title="ブライトグリーン"></button>
+          <button type="button" onclick="calSetPresetColor('#e65100')" data-color="#e65100" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#e65100" title="ダークオレンジ"></button>
+          <button type="button" onclick="calSetPresetColor('#d35400')" data-color="#d35400" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#d35400" title="オレンジ"></button>
+          <button type="button" onclick="calSetPresetColor('#e67e22')" data-color="#e67e22" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#e67e22" title="ライトオレンジ"></button>
+          <button type="button" onclick="calSetPresetColor('#f39c12')" data-color="#f39c12" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#f39c12" title="アンバー"></button>
+          <button type="button" onclick="calSetPresetColor('#b07d1a')" data-color="#b07d1a" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#b07d1a" title="ゴールド"></button>
+          <button type="button" onclick="calSetPresetColor('#6d4c41')" data-color="#6d4c41" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#6d4c41" title="ブラウン"></button>
+          <button type="button" onclick="calSetPresetColor('#37474f')" data-color="#37474f" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#37474f" title="スレート"></button>
+          <button type="button" onclick="calSetPresetColor('#333333')" data-color="#333333" class="cal-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#333333" title="ブラック"></button>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">ヘッダー・ボタン等のカラーを変更できます</p>
+      </div>
+      <div id="setup-status" class="hidden text-sm rounded-lg px-4 py-3 font-medium"></div>
+      <button id="setup-save-btn" type="button"
+        class="w-full bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-xl transition-colors">
+        <span id="setup-save-text">接続テスト＆保存</span>
+        <span id="setup-save-loading" class="hidden">接続テスト中...</span>
+      </button>
+      <p class="text-xs text-gray-400 text-center">attendance.htmlと同じSupabaseプロジェクトを使う場合、<br>同じURL・キーを入力してください</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ イベント作成／編集モーダル ══════════════════════════════════════ -->
+<div id="create-event-modal" class="fixed inset-0 z-[100] hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeEventModal()"></div>
+  <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" style="max-height:calc(100vh - 2rem)">
+    <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-5 py-3 rounded-t-2xl flex items-center justify-between shrink-0">
+      <h2 id="event-modal-title" class="text-lg font-black">📅 イベントを追加</h2>
+      <button onclick="closeEventModal()" class="text-white/70 hover:text-white text-2xl leading-none">×</button>
+    </div>
+    <div class="overflow-y-auto flex-1 px-4 py-3 space-y-2.5">
+      <input type="hidden" id="edit-event-id">
+      <div>
+        <label class="block text-gray-700 text-xs font-bold mb-1">カテゴリ</label>
+        <select id="ev-category"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+          <option value="">未設定</option>
+          <option value="U7">U7</option>
+          <option value="U8">U8</option>
+          <option value="U9">U9</option>
+          <option value="U10">U10</option>
+          <option value="U11">U11</option>
+          <option value="U12">U12</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-gray-700 text-xs font-bold mb-1">タイトル <span class="text-red-500">*</span></label>
+        <input type="text" id="ev-title" placeholder="例：5.10 試合"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+      </div>
+      <div>
+        <label class="block text-gray-700 text-xs font-bold mb-1">日付 <span class="text-red-500">*</span></label>
+        <input type="date" id="ev-date"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+      </div>
+      <div>
+        <label class="block text-gray-700 text-xs font-bold mb-1">時間</label>
+        <input type="hidden" id="ev-time">
+        <button type="button" id="ev-time-btn" onclick="openTimePicker()"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors hover:bg-gray-100 flex items-center justify-between">
+          <span id="ev-time-display">タップして時間を設定</span>
+          <span class="text-base">🕐</span>
+        </button>
+      </div>
+      <div>
+        <label class="block text-gray-700 text-xs font-bold mb-1">場所</label>
+        <input type="text" id="ev-location" placeholder="例：伊丹市立桜台小学校"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+      </div>
+      <div>
+        <label class="block text-gray-700 text-xs font-bold mb-1">移動手段</label>
+        <input type="text" id="ev-transport" placeholder="例：車"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+      </div>
+      <div>
+        <label class="block text-gray-700 text-xs font-bold mb-1">メモ</label>
+        <textarea id="ev-memo" rows="1" placeholder="任意"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"></textarea>
+      </div>
+      <div id="event-modal-status" class="hidden text-sm rounded-lg px-3 py-2 font-medium"></div>
+    </div>
+    <div class="px-4 pb-4 pt-2 shrink-0">
+      <button id="event-save-btn" type="button"
+        class="w-full bg-red-500 hover:bg-red-600 text-white font-black py-2.5 rounded-xl transition-colors">
+        <span id="event-save-text">保存する</span>
+        <span id="event-save-loading" class="hidden">保存中...</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ イベント詳細モーダル ══════════════════════════════════════════ -->
+<div id="detail-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeDetailModal()"></div>
+  <div class="relative w-full max-w-xs bg-white rounded-2xl shadow-2xl overflow-auto" style="max-height:85vh">
+    <!-- ヘッダー：カテゴリーバッジ + タイトル + 情報 -->
+    <div class="px-4 pt-4 pb-3 border-b border-gray-100">
+      <div class="flex items-start justify-between gap-2 mb-2">
+        <div class="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
+          <span id="detail-cat-badge" class="hidden text-xs font-black text-white px-2 py-0.5 rounded-full shrink-0"></span>
+          <h2 id="detail-title" class="text-base font-black text-gray-800 leading-snug"></h2>
+        </div>
+        <button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600 text-xl leading-none shrink-0 ml-1">×</button>
+      </div>
+      <div id="detail-info" class="space-y-0.5 text-xs text-gray-600"></div>
+      <div id="detail-memo" class="hidden mt-2 bg-amber-50 rounded-lg px-2.5 py-1.5 text-amber-800 text-xs"></div>
+    </div>
+    <!-- ボタン群 -->
+    <div class="p-3 space-y-2">
+      <!-- 管理者ボタン行1：リンクコピー + 回答確認 -->
+      <div id="detail-admin-links" class="hidden grid grid-cols-2 gap-2">
+        <button onclick="copyEventLink()"
+          class="flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-xl text-xs transition-colors">
+          🔗 リンクをコピー
+        </button>
+        <button onclick="viewResponses()"
+          class="flex items-center justify-center gap-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-xl text-xs transition-colors">
+          <span id="detail-resp-label">📋 回答を確認</span>
+        </button>
+      </div>
+      <!-- 管理者ボタン行2：編集・削除 -->
+      <div id="detail-admin-btns" class="hidden grid grid-cols-2 gap-2">
+        <button onclick="editCurrentEvent()"
+          class="flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-xs transition-colors">
+          ✏️ 編集
+        </button>
+        <button onclick="deleteCurrentEvent()"
+          class="flex items-center justify-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2 rounded-xl text-xs transition-colors">
+          🗑️ 削除
+        </button>
+      </div>
+      <!-- 保護者ボタン：回答する + 結果を見る -->
+      <div id="detail-parent-btns" class="grid grid-cols-2 gap-2">
+        <button onclick="openParentRespond()"
+          class="flex items-center justify-center gap-1 bg-red-500 hover:bg-red-600 text-white font-black py-2.5 rounded-xl text-sm transition-colors">
+          ✏️ 回答する
+        </button>
+        <button onclick="showParentResults()"
+          class="flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2.5 rounded-xl text-sm transition-colors">
+          <span id="parent-resp-label">📊 結果を見る</span>
+        </button>
+      </div>
+      <!-- カレンダーに追加 -->
+      <button onclick="downloadICS()"
+        class="w-full flex items-center justify-center gap-1.5 bg-gray-50 hover:bg-gray-100 text-gray-500 font-bold py-2 rounded-xl text-xs transition-colors border border-gray-200">
+        📅 カレンダーに追加（.ics）
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 選手一覧モーダル ══════════════════════════════════════════════ -->
+<div id="cal-player-list-modal" class="fixed inset-0 z-[100] hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeCalPlayerListModal()"></div>
+  <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" style="max-height:calc(100vh - 2rem)">
+    <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-5 py-4 rounded-t-2xl flex items-center justify-between shrink-0">
+      <h2 class="text-lg font-black">👤 選手管理</h2>
+      <button onclick="closeCalPlayerListModal()" class="text-white/70 hover:text-white text-2xl leading-none">×</button>
+    </div>
+    <div class="px-4 py-3 border-b border-gray-100 shrink-0">
+      <button onclick="openCalPlayerModal()" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 rounded-xl text-sm transition-colors">＋ 選手登録</button>
+    </div>
+    <div id="cal-player-list" class="overflow-y-auto flex-1 px-4 py-3 space-y-2"></div>
+    <div id="cal-player-empty" class="hidden px-4 py-12 text-center text-gray-400 text-sm">選手が登録されていません</div>
+  </div>
+</div>
+
+<!-- ══ 選手追加・編集モーダル ══════════════════════════════════════════ -->
+<div id="cal-player-modal" class="fixed inset-0 z-[110] hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeCalPlayerModal()"></div>
+  <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-sm bg-white rounded-2xl shadow-2xl overflow-auto max-h-full">
+    <div class="p-6">
+      <div class="flex justify-between items-center mb-5">
+        <h2 id="cal-player-modal-title" class="text-xl font-bold text-gray-800">選手登録</h2>
+        <button onclick="closeCalPlayerModal()" class="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+      </div>
+      <div class="space-y-4">
+        <input type="hidden" id="cal-player-edit-id">
+        <div>
+          <label class="block text-gray-700 text-sm font-medium mb-1">入会年度</label>
+          <select id="cal-player-entry-year" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+          </select>
+        </div>
+        <div>
+          <label class="block text-gray-700 text-sm font-medium mb-1">入会時カテゴリー</label>
+          <select id="cal-player-base-category" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+            <option value="U7">U7</option><option value="U8">U8</option><option value="U9">U9</option>
+            <option value="U10">U10</option><option value="U11">U11</option><option value="U12">U12</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-gray-700 text-sm font-medium mb-1">背番号</label>
+          <input type="number" id="cal-player-number" min="0" max="99" placeholder="背番号を入力" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+        </div>
+        <div>
+          <label class="block text-gray-700 text-sm font-medium mb-1">選手名</label>
+          <input type="text" id="cal-player-name" placeholder="選手の名前" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+        </div>
+        <p id="cal-player-modal-error" class="hidden text-sm text-red-600 font-medium"></p>
+        <button onclick="saveCalPlayer()" class="w-full bg-gradient-to-r from-red-600 to-red-500 text-white font-bold py-3.5 rounded-xl transition-colors">
+          <span id="cal-player-save-label">選手を登録</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 選手削除確認モーダル ════════════════════════════════════════════ -->
+<div id="cal-player-delete-modal" class="fixed inset-0 z-[120] hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeCalDeletePlayerModal()"></div>
+  <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-sm bg-white rounded-2xl shadow-2xl p-6 text-center">
+    <span class="text-5xl mb-4 block">🗑️</span>
+    <h3 class="text-xl font-bold text-gray-800 mb-2">この選手を削除しますか？</h3>
+    <p class="text-gray-600 text-sm mb-6">この操作は取り消せません</p>
+    <div class="flex gap-3">
+      <button onclick="closeCalDeletePlayerModal()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded-xl transition-colors">キャンセル</button>
+      <button onclick="handleCalDeletePlayer()" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl transition-colors">
+        <span id="cal-player-delete-text">削除する</span>
+        <span id="cal-player-delete-loading" class="hidden">削除中...</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 時間ピッカー ══════════════════════════════════════════════════ -->
+<div id="time-picker-modal" class="hidden fixed inset-0 z-[210] flex items-end sm:items-center justify-center">
+  <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeTimePicker()"></div>
+  <div class="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+    <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-5 py-4 flex items-center gap-3">
+      <span class="text-xl">🕐</span>
+      <h3 class="text-lg font-black">時間設定</h3>
+    </div>
+    <div class="px-4 pt-3 pb-0 flex gap-2">
+      <button id="tp-btn-none" class="tp-ampm flex-1 py-1.5 rounded-lg text-sm font-bold" onclick="tpSetAmPm('')">指定なし</button>
+      <button id="tp-btn-am"   class="tp-ampm flex-1 py-1.5 rounded-lg text-sm font-bold" onclick="tpSetAmPm('午前')">午前</button>
+      <button id="tp-btn-pm"   class="tp-ampm flex-1 py-1.5 rounded-lg text-sm font-bold" onclick="tpSetAmPm('午後')">午後</button>
+      <button id="tp-btn-all"  class="tp-ampm flex-1 py-1.5 rounded-lg text-sm font-bold" onclick="tpSetAmPm('終日')">終日</button>
+    </div>
+    <div class="px-5 pt-3 pb-3 bg-gray-50 border-b border-gray-200 space-y-2.5">
+      <div id="tp-row-0" class="flex items-center gap-2">
+        <span class="tp-row-label text-xs font-bold text-gray-400 w-10 shrink-0 transition-colors cursor-pointer" onclick="tpMoveCursor(0,0)">開始</span>
+        <div class="flex items-center gap-1.5">
+          <div id="tp-s0" class="tp-digit cursor-pointer" onclick="tpMoveCursor(0,0)">—</div>
+          <div id="tp-s1" class="tp-digit cursor-pointer" onclick="tpMoveCursor(0,1)">—</div>
+          <span class="text-xl font-black text-gray-300 mx-0.5">:</span>
+          <div id="tp-s2" class="tp-digit cursor-pointer" onclick="tpMoveCursor(0,2)">—</div>
+          <div id="tp-s3" class="tp-digit cursor-pointer" onclick="tpMoveCursor(0,3)">—</div>
+        </div>
+      </div>
+      <div id="tp-row-1" class="flex items-center gap-2">
+        <span class="tp-row-label text-xs font-bold text-gray-400 w-10 shrink-0 transition-colors cursor-pointer" onclick="tpMoveCursor(1,0)">終了</span>
+        <div class="flex items-center gap-1.5">
+          <div id="tp-e0" class="tp-digit cursor-pointer" onclick="tpMoveCursor(1,0)">—</div>
+          <div id="tp-e1" class="tp-digit cursor-pointer" onclick="tpMoveCursor(1,1)">—</div>
+          <span class="text-xl font-black text-gray-300 mx-0.5">:</span>
+          <div id="tp-e2" class="tp-digit cursor-pointer" onclick="tpMoveCursor(1,2)">—</div>
+          <div id="tp-e3" class="tp-digit cursor-pointer" onclick="tpMoveCursor(1,3)">—</div>
+        </div>
+      </div>
+    </div>
+    <div class="p-3 grid grid-cols-4 gap-2">
+      <button class="tp-num" onclick="tpInput(1)">1</button>
+      <button class="tp-num" onclick="tpInput(2)">2</button>
+      <button class="tp-num" onclick="tpInput(3)">3</button>
+      <button class="tp-num tp-func" onclick="tpBackspace()">←</button>
+      <button class="tp-num" onclick="tpInput(4)">4</button>
+      <button class="tp-num" onclick="tpInput(5)">5</button>
+      <button class="tp-num" onclick="tpInput(6)">6</button>
+      <button class="tp-num tp-now-btn" onclick="tpNow()">NOW</button>
+      <button class="tp-num" onclick="tpInput(7)">7</button>
+      <button class="tp-num" onclick="tpInput(8)">8</button>
+      <button class="tp-num" onclick="tpInput(9)">9</button>
+      <button class="tp-num" onclick="tpInput(0)">0</button>
+    </div>
+    <div class="px-4 pb-5 grid grid-cols-3 gap-2">
+      <button onclick="confirmTimePicker()" class="bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-xl transition-colors">設定</button>
+      <button onclick="clearTimePicker()"   class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-colors">クリア</button>
+      <button onclick="closeTimePicker()"   class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-colors">戻る</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 回答確認モーダル ══════════════════════════════════════════════ -->
+<div id="response-modal" class="fixed inset-0 z-[110] hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeResponseModal()"></div>
+  <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" style="max-height:calc(100vh - 2rem)">
+    <!-- ヘッダー -->
+    <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-5 py-4 rounded-t-2xl flex items-start justify-between shrink-0">
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 mb-1">
+          <span id="resp-modal-cat-badge" class="hidden text-[11px] font-black px-2 py-0.5 rounded-full bg-white/20 text-white shrink-0"></span>
+          <div id="resp-modal-title" class="text-xl font-black leading-tight"></div>
+        </div>
+        <div id="resp-modal-subtitle" class="text-xs text-white/80 space-y-0.5"></div>
+      </div>
+      <button onclick="closeResponseModal()" class="text-white/70 hover:text-white text-2xl leading-none shrink-0 ml-3">×</button>
+    </div>
+    <!-- 集計 -->
+    <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 shrink-0">
+      <div class="grid grid-cols-4 gap-2 text-center">
+        <div class="bg-white rounded-xl p-2.5 shadow-sm flex flex-col">
+          <p class="text-xs text-gray-400 leading-tight flex-1 flex items-end justify-center pb-1">回答数</p>
+          <p id="cal-summary-total" class="text-xl font-black text-gray-700">0</p>
+        </div>
+        <div class="bg-green-50 rounded-xl p-2.5 flex flex-col">
+          <p class="text-xs text-gray-400 leading-tight flex-1 flex items-end justify-center pb-1">出席</p>
+          <p id="cal-summary-attend" class="text-xl font-black text-green-600">0</p>
+        </div>
+        <div class="bg-red-50 rounded-xl p-2.5 flex flex-col">
+          <p class="text-xs text-gray-400 leading-tight flex-1 flex items-end justify-center pb-1">乗せて<br>欲しい</p>
+          <p id="cal-summary-need-ride" class="text-xl font-black text-red-600">0</p>
+        </div>
+        <div class="bg-blue-50 rounded-xl p-2.5 flex flex-col">
+          <p class="text-xs text-gray-400 leading-tight flex-1 flex items-end justify-center pb-1">配車<br>できる</p>
+          <p id="cal-summary-can-drive" class="text-xl font-black text-blue-600">0</p>
+        </div>
+      </div>
+    </div>
+    <!-- 回答一覧 -->
+    <div class="overflow-y-auto flex-1">
+      <div id="cal-response-list"></div>
+      <p id="cal-no-responses" class="hidden text-center text-gray-400 text-sm py-8">まだ回答がありません</p>
+    </div>
+  </div>
+</div>
+
+<!-- 回答行詳細ポップアップ -->
+<div id="cal-memo-popup" class="fixed inset-0 z-[200] hidden flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/50" onclick="closeCalMemoPopup()"></div>
+  <div class="relative bg-white rounded-2xl shadow-2xl overflow-hidden max-w-sm w-full">
+    <div id="cal-memo-popup-content" class="p-5"></div>
+    <div class="px-5 pb-5">
+      <button onclick="closeCalMemoPopup()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-sm transition-colors">閉じる</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 管理者ログインモーダル ══════════════════════════════════════════ -->
+<div id="login-modal" class="fixed inset-0 z-[200] hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeLoginModal()"></div>
+  <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-sm bg-white rounded-2xl shadow-2xl overflow-auto max-h-full">
+    <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-6 py-5 rounded-t-2xl flex items-start justify-between">
+      <div>
+        <h2 class="text-xl font-black">🔑 管理者ログイン</h2>
+        <p class="text-sm text-white/80 mt-1">イベントの追加・編集ができます</p>
+      </div>
+      <button onclick="closeLoginModal()" class="text-white/70 hover:text-white text-2xl leading-none ml-3 shrink-0">×</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-1">メールアドレス</label>
+        <input id="login-email" type="email" placeholder="admin@example.com"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+      </div>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-1">パスワード</label>
+        <div class="relative">
+          <input id="login-password" type="password" placeholder="パスワード"
+            class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+          <button type="button" onclick="togglePw()" id="pw-eye"
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none">👁</button>
+        </div>
+      </div>
+      <div id="login-status" class="hidden text-sm text-red-600 font-medium"></div>
+      <button onclick="handleLogin()" id="login-btn-submit"
+        class="w-full bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-xl transition-colors">
+        <span id="login-btn-text">ログイン</span>
+        <span id="login-btn-load" class="hidden">ログイン中…</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+  // ─── 定数 ────────────────────────────────────────────────────────────
+  const STORAGE_CONFIG_KEY = 'mrs_app_config_v1'; // attendance.html と共用
+  const STORAGE_TEAMS_KEY  = 'mrs_teams_v1';       // attendance.html と共用
+  const STORAGE_ACTIVE_KEY = 'mrs_active_team_v1'; // attendance.html と共用
+  const TABLE_EVENTS    = 'attendance_events';
+  const TABLE_RESPONSES = 'attendance_responses';
+  const STORAGE_FILTER_KEY = 'mrs_cal_filter_v1';  // カテゴリーフィルター記憶用
+  const STORAGE_VIEW_KEY   = 'mrs_cal_view_v1';    // ビューモード記憶用
+
+  // 色を全カテゴリーで明確に区別（紫→青→緑→シアン→黄→赤）
+  const CAT_COLORS = {
+    'U7':  '#8B5CF6',  // 紫
+    'U8':  '#3B82F6',  // 青
+    'U9':  '#10B981',  // 緑
+    'U10': '#06B6D4',  // シアン
+    'U11': '#F59E0B',  // 黄/アンバー
+    'U12': '#EF4444',  // 赤
+  };
+  function catColor(cat) { return CAT_COLORS[cat] || '#6B7280'; }
+
+  // 回答バッジカラー（attendance.html と共通）
+  const ATTEND_COLOR    = { '出席':'bg-green-100 text-green-700', '欠席':'bg-gray-100 text-gray-500', '未定':'bg-yellow-100 text-yellow-600' };
+  const TRANSPORT_COLOR = { '乗せて欲しい':'bg-red-100 text-red-600', '大丈夫':'bg-gray-100 text-gray-500', '未定':'bg-yellow-100 text-yellow-600' };
+  const CARPOOL_COLOR   = { 'できる':'bg-blue-100 text-blue-700', '難しい':'bg-gray-100 text-gray-500', '未定':'bg-yellow-100 text-yellow-600' };
+
+  // ─── 状態 ────────────────────────────────────────────────────────────
+  let supabaseClient = null;
+  let events = [];
+  let currentYear  = new Date().getFullYear();
+  let currentMonth = new Date().getMonth();
+  let viewMode = 'month';
+  let currentDetailEvent = null;
+  let isAdmin = false;
+  // ─── モード判定（ページロード時に確定） ────────────────────────────────
+  const _urlP        = new URLSearchParams(location.search);
+  const isFamilyMode = _urlP.get('view') === 'parent';
+  // コーチモード：URLハッシュ または セッション継続中（リロード対応）
+  const _coachSess   = (() => { try { return sessionStorage.getItem('mrs_cal_coach') === '1'; } catch(e) { return false; } })();
+  const isCoachMode  = !isFamilyMode && (!!location.hash || _coachSess);
+  const isSetupMode  = !isFamilyMode && !isCoachMode;
+  let selectedCategory = []; // [] = 全カテゴリー表示、複数選択可
+
+  // ─── 設定読み書き ────────────────────────────────────────────────────
+  function loadConfig() {
+    try {
+      // アクティブチームがあればそちらを優先
+      const teams    = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
+      const activeId = localStorage.getItem(STORAGE_ACTIVE_KEY);
+      const active   = activeId ? teams.find(t => t.id === activeId) : teams[0];
+      if (active?.supabase_url) {
+        return { supabase_url: active.supabase_url, supabase_anon_key: active.supabase_anon_key, team_name: active.team_name, primary_color: active.primary_color, footer_text: active.footer_text };
+      }
+      return JSON.parse(localStorage.getItem(STORAGE_CONFIG_KEY) || 'null');
+    } catch(e) { return null; }
+  }
+  function saveConfig(cfg) {
+    try {
+      localStorage.setItem(STORAGE_CONFIG_KEY, JSON.stringify(cfg));
+      // STORAGE_TEAMS_KEY のアクティブチームも同期更新
+      const teams    = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
+      const activeId = localStorage.getItem(STORAGE_ACTIVE_KEY);
+      const idx = activeId
+        ? teams.findIndex(t => t.id === activeId)
+        : teams.findIndex(t => t.supabase_url === cfg.supabase_url);
+      if (idx >= 0) {
+        if (cfg.primary_color) teams[idx].primary_color = cfg.primary_color;
+        if (cfg.team_name)     teams[idx].team_name     = cfg.team_name;
+        if (cfg.footer_text)   teams[idx].footer_text   = cfg.footer_text;
+        localStorage.setItem(STORAGE_TEAMS_KEY, JSON.stringify(teams));
+      }
+    } catch(e) {}
+  }
+
+  function applyColor(hex) {
+    if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return;
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    const dark = `rgb(${Math.round(r*.75)},${Math.round(g*.75)},${Math.round(b*.75)})`;
+    const mid  = `rgb(${Math.round(r*.88)},${Math.round(g*.88)},${Math.round(b*.88)})`;
+    const root = document.documentElement;
+    root.style.setProperty('--primary', hex);
+    root.style.setProperty('--primary-dark', dark);
+    root.style.setProperty('--primary-mid', mid);
+  }
+
+  function initSupabase() {
+    const cfg = loadConfig();
+    if (!cfg?.supabase_url || !cfg?.supabase_anon_key) return false;
+    try {
+      supabaseClient = window.supabase.createClient(cfg.supabase_url, cfg.supabase_anon_key);
+      applyCalConfig(cfg);
+      return true;
+    } catch(e) { return false; }
+  }
+
+  // ─── ハッシュ設定（コーチリンク対応） ───────────────────────────────
+  function parseHashConfig() {
+    try {
+      const hash = location.hash.slice(1);
+      if (!hash) return null;
+      return JSON.parse(decodeURIComponent(escape(atob(hash))));
+    } catch(e) { return null; }
+  }
+  function buildHashString(cfg) {
+    const payload = { u: cfg.supabase_url, k: cfg.supabase_anon_key, t: cfg.team_name || '', c: cfg.primary_color || '#c0392b' };
+    return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  }
+  function getBaseUrl() {
+    return (location.protocol === 'file:' || location.origin === 'null')
+      ? '' : location.origin + location.pathname;
+  }
+
+  // ─── 設定ドロップダウン ──────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn  = document.getElementById('settings-btn');
+    const menu = document.getElementById('settings-menu');
+    const setupBtn = document.getElementById('open-setup-menu-btn');
+    if (btn && menu) {
+      btn.addEventListener('click', e => { e.stopPropagation(); menu.classList.toggle('hidden'); });
+      document.addEventListener('click', () => menu.classList.add('hidden'));
+      menu.addEventListener('click', e => e.stopPropagation());
+    }
+    if (setupBtn) {
+      setupBtn.addEventListener('click', () => {
+        document.getElementById('settings-menu')?.classList.add('hidden');
+        openSetupModal();
+      });
+    }
+  });
+
+  // ─── チーム管理 ──────────────────────────────────────────────────────
+  let calSetupMode     = 'edit';
+  let calEditingTeamId = null;
+
+  function openTeamManager() {
+    document.getElementById('settings-menu')?.classList.add('hidden');
+    renderCalTeamList();
+    document.getElementById('cal-team-manager-modal').classList.remove('hidden');
+  }
+  function closeTeamManager() {
+    document.getElementById('cal-team-manager-modal').classList.add('hidden');
+  }
+  function renderCalTeamList() {
+    const teams    = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
+    const activeId = localStorage.getItem(STORAGE_ACTIVE_KEY);
+    const container = document.getElementById('cal-team-list');
+    if (!container) return;
+    const resolvedActive = activeId || teams[0]?.id;
+    container.innerHTML = (teams.length === 0
+      ? '<p class="text-center text-gray-400 text-sm py-4">チームがまだ登録されていません</p>'
+      : teams.map(team => {
+          const isActive = team.id === resolvedActive;
+          return `<div class="flex items-center gap-2 p-3 rounded-xl border-2 ${isActive ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'} transition-colors">
+            <div class="flex-1 min-w-0">
+              <p class="font-bold text-gray-800 truncate">${escHtml(team.team_name || '名前なし')}</p>
+              ${isActive ? '<p class="text-xs text-blue-600 font-medium">✓ 使用中</p>' : ''}
+            </div>
+            ${!isActive ? `<button onclick="switchToCalTeam('${team.id}')" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold transition-colors">切替</button>` : ''}
+            <button onclick="editCalTeam('${team.id}')" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-colors">編集</button>
+            <button onclick="deleteCalTeam('${team.id}')" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 text-xs font-bold transition-colors">削除</button>
+          </div>`;
+        }).join('')
+    ) + `<button onclick="openSetupModal('new')" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-blue-300 text-blue-600 font-bold hover:bg-blue-50 transition-colors mt-1">＋ チームを追加</button>`;
+  }
+  async function switchToCalTeam(teamId) {
+    const teams = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
+    const team  = teams.find(t => t.id === teamId);
+    if (!team) return;
+    localStorage.setItem(STORAGE_ACTIVE_KEY, teamId);
+    const cfg = { supabase_url: team.supabase_url, supabase_anon_key: team.supabase_anon_key, team_name: team.team_name, primary_color: team.primary_color, footer_text: team.footer_text };
+    localStorage.setItem(STORAGE_CONFIG_KEY, JSON.stringify(cfg));
+    applyCalConfig(cfg);
+    supabaseClient = null;
+    initSupabase();
+    closeTeamManager();
+    events = [];
+    await loadEvents();
+  }
+  function editCalTeam(teamId) {
+    closeTeamManager();
+    openSetupModal('edit-team', teamId);
+  }
+  async function deleteCalTeam(teamId) {
+    const teams = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
+    const team  = teams.find(t => t.id === teamId);
+    if (!team) return;
+    if (teams.length === 1) { alert('最後のチームは削除できません'); return; }
+    if (!confirm(`「${team.team_name}」を削除しますか？`)) return;
+    const newTeams = teams.filter(t => t.id !== teamId);
+    localStorage.setItem(STORAGE_TEAMS_KEY, JSON.stringify(newTeams));
+    if ((localStorage.getItem(STORAGE_ACTIVE_KEY) || teams[0]?.id) === teamId) {
+      await switchToCalTeam(newTeams[0].id);
+    } else {
+      renderCalTeamList();
+    }
+  }
+
+  function applyCalConfig(cfg) {
+    if (!cfg) return;
+    if (cfg.team_name) {
+      document.getElementById('app-team-name').textContent = cfg.team_name;
+      document.title = cfg.team_name + ' カレンダー';
+    }
+    const footerEl = document.getElementById('footer-text');
+    if (footerEl) footerEl.textContent = cfg.footer_text || '© CALENDAR';
+    if (cfg.primary_color) applyColor(cfg.primary_color);
+  }
+
+  // ─── 接続設定 ────────────────────────────────────────────────────────
+  function openSetupModal(mode = 'edit', teamId = null) {
+    document.getElementById('settings-menu')?.classList.add('hidden');
+    calSetupMode     = mode;
+    calEditingTeamId = teamId;
+    let cfg = null;
+    if (mode === 'new') {
+      cfg = { team_name:'', supabase_url:'', supabase_anon_key:'', primary_color:'#c0392b', footer_text:'' };
+    } else if (mode === 'edit-team' && teamId) {
+      const teams = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
+      const team  = teams.find(t => t.id === teamId);
+      cfg = team ? { team_name: team.team_name, supabase_url: team.supabase_url, supabase_anon_key: team.supabase_anon_key, primary_color: team.primary_color, footer_text: team.footer_text } : loadConfig();
+    } else {
+      cfg = loadConfig();
+    }
+    if (cfg) {
+      document.getElementById('setup-team-name').value  = cfg.team_name       || '';
+      document.getElementById('setup-url').value        = cfg.supabase_url    || '';
+      document.getElementById('setup-anon-key').value   = cfg.supabase_anon_key || '';
+      document.getElementById('setup-footer-text').value= cfg.footer_text     || '';
+      const color = cfg.primary_color || '#c0392b';
+      document.getElementById('setup-primary-color').value = color;
+      calUpdateColorPanelUI(color);
+    }
+    document.getElementById('setup-status').classList.add('hidden');
+    document.getElementById('setup-modal').classList.remove('hidden');
+  }
+
+  function calUpdateColorPanelUI(hex) {
+    document.getElementById('cal-color-preview-swatch').style.background = hex;
+    document.getElementById('cal-color-preview-hex').textContent = hex.toUpperCase();
+    document.getElementById('setup-primary-color').value = hex;
+    document.querySelectorAll('.cal-color-preset-btn').forEach(b => {
+      b.style.outline = b.dataset.color?.toLowerCase() === hex.toLowerCase() ? '2px solid #111' : 'none';
+      b.style.outlineOffset = '2px';
+    });
+  }
+  function calSetPresetColor(hex) { applyColor(hex); calUpdateColorPanelUI(hex); }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const colorInput = document.getElementById('setup-primary-color');
+    if (colorInput) colorInput.addEventListener('input', e => { applyColor(e.target.value); calUpdateColorPanelUI(e.target.value); });
+  });
+
+  async function handleSetupSave() {
+    const btn      = document.getElementById('setup-save-btn');
+    const txt      = document.getElementById('setup-save-text');
+    const load     = document.getElementById('setup-save-loading');
+    const statusEl = document.getElementById('setup-status');
+
+    const teamName = document.getElementById('setup-team-name').value.trim();
+    const url      = document.getElementById('setup-url').value.trim();
+    const key      = document.getElementById('setup-anon-key').value.trim();
+    const footer   = document.getElementById('setup-footer-text').value.trim();
+    const color    = document.getElementById('setup-primary-color')?.value || '#c0392b';
+
+    if (!teamName) { setStatus(statusEl, 'チーム名を入力してください', 'error'); return; }
+    if (!url || !url.startsWith('https://')) { setStatus(statusEl, 'URLを正しく入力してください（https://...）', 'error'); return; }
+    if (!key || !key.startsWith('eyJ'))       { setStatus(statusEl, 'anon キーを確認してください', 'error'); return; }
+
+    btn.disabled = true; txt.classList.add('hidden'); load.classList.remove('hidden');
+    setStatus(statusEl, '接続テスト中...', 'info');
+
+    let testOk = false;
+    try {
+      const res = await fetch(`${url.replace(/\/$/, '')}/rest/v1/${TABLE_EVENTS}?select=id&limit=1`, {
+        headers: { apikey: key, Authorization: `Bearer ${key}` }
+      });
+      if (res.status === 401 || res.status === 403) {
+        setStatus(statusEl, '認証エラー：anon キーを確認してください', 'error');
+      } else if (res.status === 404) {
+        setStatus(statusEl, 'テーブルが見つかりません', 'error');
+      } else {
+        testOk = true;
+      }
+    } catch(e) {
+      setStatus(statusEl, '接続できませんでした。URLを確認してください', 'error');
+    }
+
+    btn.disabled = false; txt.classList.remove('hidden'); load.classList.add('hidden');
+    if (!testOk) return;
+
+    const newCfg = { team_name: teamName, supabase_url: url.replace(/\/$/, ''), supabase_anon_key: key, primary_color: color, footer_text: footer || '© CALENDAR' };
+
+    if (calSetupMode === 'new') {
+      const teams = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
+      const newId = Date.now().toString();
+      teams.push({ id: newId, ...newCfg });
+      localStorage.setItem(STORAGE_TEAMS_KEY, JSON.stringify(teams));
+      localStorage.setItem(STORAGE_ACTIVE_KEY, newId);
+      localStorage.setItem(STORAGE_CONFIG_KEY, JSON.stringify(newCfg));
+    } else if (calSetupMode === 'edit-team' && calEditingTeamId) {
+      const teams = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
+      const idx   = teams.findIndex(t => t.id === calEditingTeamId);
+      if (idx >= 0) { teams[idx] = { ...teams[idx], ...newCfg }; localStorage.setItem(STORAGE_TEAMS_KEY, JSON.stringify(teams)); }
+      if (localStorage.getItem(STORAGE_ACTIVE_KEY) === calEditingTeamId) {
+        localStorage.setItem(STORAGE_CONFIG_KEY, JSON.stringify(newCfg));
+      }
+    } else {
+      saveConfig(newCfg);
+    }
+
+    applyCalConfig(newCfg);
+    supabaseClient = null;
+    initSupabase();
+    setStatus(statusEl, '✅ 接続OK！保存しました', 'success');
+    setTimeout(async () => {
+      document.getElementById('setup-modal').classList.add('hidden');
+      events = [];
+      await loadEvents();
+    }, 800);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const saveBtn = document.getElementById('setup-save-btn');
+    if (saveBtn) saveBtn.addEventListener('click', handleSetupSave);
+  });
+
+  // ─── ファミリーリンク発行 ────────────────────────────────────────────────
+  function openParentLinkModal() {
+    document.getElementById('settings-menu')?.classList.add('hidden');
+    const base = getBaseUrl();
+    document.getElementById('parent-link-base-url').value = base;
+    document.getElementById('parent-link-result').classList.add('hidden');
+    document.getElementById('parent-link-copy-msg').classList.add('hidden');
+    document.getElementById('parent-link-modal').classList.remove('hidden');
+    if (base) updateParentLink();
+  }
+  function closeParentLinkModal() { document.getElementById('parent-link-modal').classList.add('hidden'); }
+  function updateParentLink() {
+    const base   = document.getElementById('parent-link-base-url')?.value.trim();
+    const result = document.getElementById('parent-link-result');
+    if (!base) { result?.classList.add('hidden'); return; }
+    const cfg = loadConfig();
+    if (!cfg?.supabase_url || !cfg?.supabase_anon_key) { result?.classList.add('hidden'); return; }
+    const link = base.replace(/\/?$/, '') + '?view=parent#' + buildHashString(cfg);
+    const linkInput = document.getElementById('parent-link-url');
+    if (linkInput) linkInput.value = link;
+    result?.classList.remove('hidden');
+    document.getElementById('parent-link-copy-msg')?.classList.add('hidden');
+  }
+  async function copyParentLink() {
+    const url = document.getElementById('parent-link-url')?.value;
+    if (!url) return;
+    const msg = document.getElementById('parent-link-copy-msg');
+    if (msg) { msg.textContent = '🔄 短縮URL生成中...'; msg.classList.remove('hidden'); }
+    const short = await shortenUrl(url);
+    const finalUrl = short || url;
+    try { await navigator.clipboard.writeText(finalUrl); }
+    catch(e) { document.getElementById('parent-link-url')?.select(); }
+    if (msg) {
+      msg.textContent = short ? `✅ 短縮URLをコピー: ${short}` : '✅ クリップボードにコピーしました';
+      msg.classList.remove('hidden');
+      setTimeout(() => msg.classList.add('hidden'), 4000);
+    }
+  }
+
+  // ─── コーチリンク発行 ────────────────────────────────────────────────
+  function openAdminLinkModal() {
+    document.getElementById('settings-menu')?.classList.add('hidden');
+    const base = getBaseUrl();
+    document.getElementById('admin-link-base-url').value = base;
+    document.getElementById('admin-link-result').classList.add('hidden');
+    document.getElementById('admin-link-copy-msg').classList.add('hidden');
+    document.getElementById('admin-link-modal').classList.remove('hidden');
+    if (base) updateAdminLink();
+  }
+  function closeAdminLinkModal() { document.getElementById('admin-link-modal').classList.add('hidden'); }
+  function updateAdminLink() {
+    const base   = document.getElementById('admin-link-base-url')?.value.trim();
+    const result = document.getElementById('admin-link-result');
+    if (!base) { result?.classList.add('hidden'); return; }
+    const cfg = loadConfig();
+    if (!cfg?.supabase_url || !cfg?.supabase_anon_key) { result?.classList.add('hidden'); return; }
+    const link = base.replace(/\/?$/, '') + '#' + buildHashString(cfg);
+    const linkInput = document.getElementById('admin-link-url');
+    if (linkInput) linkInput.value = link;
+    result?.classList.remove('hidden');
+    document.getElementById('admin-link-copy-msg')?.classList.add('hidden');
+  }
+  async function copyAdminLink() {
+    const url = document.getElementById('admin-link-url')?.value;
+    if (!url) return;
+    const msg = document.getElementById('admin-link-copy-msg');
+    if (msg) { msg.textContent = '🔄 短縮URL生成中...'; msg.classList.remove('hidden'); }
+    const short = await shortenUrl(url);
+    const finalUrl = short || url;
+    try { await navigator.clipboard.writeText(finalUrl); }
+    catch(e) { document.getElementById('admin-link-url')?.select(); }
+    if (msg) {
+      msg.textContent = short ? `✅ 短縮URLをコピー: ${short}` : '✅ クリップボードにコピーしました';
+      msg.classList.remove('hidden');
+      setTimeout(() => msg.classList.add('hidden'), 4000);
+    }
+  }
+
+  // ─── URL短縮（TinyURL優先・is.gdフォールバック） ────────────────────────
+  async function shortenUrl(url) {
+    // TinyURL（CORS対応・無料）
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 6000);
+      const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`, { signal: ctrl.signal });
+      clearTimeout(t);
+      const text = await res.text();
+      if (text.startsWith('https://tinyurl.com/')) return text.trim();
+    } catch(e) {}
+    // is.gd（フォールバック）
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 6000);
+      const res = await fetch(`https://is.gd/create.php?format=simple&url=${encodeURIComponent(url)}`, { signal: ctrl.signal });
+      clearTimeout(t);
+      const text = await res.text();
+      if (text.startsWith('https://is.gd/')) return text.trim();
+    } catch(e) {}
+    return null;
+  }
+
+  // ─── 認証 ────────────────────────────────────────────────────────────
+  function openLoginModal() {
+    document.getElementById('settings-menu')?.classList.add('hidden');
+    document.getElementById('login-status').classList.add('hidden');
+    document.getElementById('login-email').value = '';
+    document.getElementById('login-password').value = '';
+    document.getElementById('login-modal').classList.remove('hidden');
+  }
+  function closeLoginModal() { document.getElementById('login-modal').classList.add('hidden'); }
+
+  function togglePw() {
+    const i = document.getElementById('login-password');
+    const b = document.getElementById('pw-eye');
+    i.type = i.type === 'password' ? 'text' : 'password';
+    b.textContent = i.type === 'password' ? '👁' : '🙈';
+  }
+
+  async function handleLogin() {
+    const email    = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const btn      = document.getElementById('login-btn-submit');
+    const txt      = document.getElementById('login-btn-text');
+    const load     = document.getElementById('login-btn-load');
+    const status   = document.getElementById('login-status');
+    if (!email || !password) { setStatus(status, 'メールアドレスとパスワードを入力してください', 'error'); return; }
+    btn.disabled = true; txt.classList.add('hidden'); load.classList.remove('hidden');
+    try {
+      const { error } = await Promise.race([
+        supabaseClient.auth.signInWithPassword({ email, password }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 30000))
+      ]);
+      if (error) { setStatus(status, 'メールアドレスまたはパスワードが違います', 'error'); return; }
+      closeLoginModal();
+      setAdminMode(true);
+      await loadEvents();
+    } catch(e) {
+      setStatus(status, e.message === 'timeout' ? 'タイムアウトしました' : 'ログインに失敗しました', 'error');
+    } finally {
+      btn.disabled = false; txt.classList.remove('hidden'); load.classList.add('hidden');
+    }
+  }
+
+  async function handleLogout() {
+    document.getElementById('settings-menu')?.classList.add('hidden');
+    try { await Promise.race([supabaseClient.auth.signOut(), new Promise(r => setTimeout(r, 3000))]); } catch(e) {}
+    setAdminMode(false);
+  }
+
+  function setAdminMode(admin) {
+    isAdmin = admin;
+    // 設定ボタン：管理者 or セットアップモードは表示（ログインボタンにアクセスするため）
+    document.getElementById('settings-btn')?.classList.toggle('hidden', !admin && !isSetupMode);
+    // 新規追加ボタン：管理者のみ
+    document.getElementById('add-event-btn')?.classList.toggle('hidden', !admin);
+    // 設定メニュー内ボタン
+    document.getElementById('menu-login-btn')?.classList.toggle('hidden', admin);
+    // セットアップ未ログイン時はログイン以外を非表示
+    document.getElementById('open-setup-menu-btn')?.classList.toggle('hidden', !admin && isSetupMode);
+    document.getElementById('menu-team-btn')?.classList.toggle('hidden', !admin && isSetupMode);
+    document.getElementById('menu-parent-link-btn')?.classList.toggle('hidden', !admin && isSetupMode);
+    // セットアップ未ログイン時はチーム名・イベントデータを非表示
+    if (!admin && isSetupMode) {
+      document.getElementById('app-team-name').textContent = 'カレンダー';
+      document.title = 'カレンダー';
+      events = [];
+    } else if (admin) {
+      const cfg = loadConfig();
+      if (cfg && cfg.team_name) {
+        document.getElementById('app-team-name').textContent = cfg.team_name;
+        document.title = cfg.team_name + ' カレンダー';
+      }
+    }
+    document.getElementById('menu-player-btn')?.classList.toggle('hidden', !admin);
+    document.getElementById('menu-admin-link-btn')?.classList.toggle('hidden', !admin);
+    document.getElementById('menu-logout-btn')?.classList.toggle('hidden', !admin || !isSetupMode);
+    // 詳細ポップアップ：管理者ボタン群
+    document.getElementById('detail-admin-links')?.classList.toggle('hidden', !admin);
+    document.getElementById('detail-admin-btns')?.classList.toggle('hidden', !admin);
+    // 詳細ポップアップ：保護者ボタン群
+    document.getElementById('detail-parent-btns')?.classList.toggle('hidden', admin);
+    renderCalendar();
+  }
+
+  // ─── モード制限適用 ──────────────────────────────────────────────────
+  function applyModeRestrictions() {
+    const badge = document.getElementById('mode-badge');
+    if (badge) {
+      if (isSetupMode)  { badge.textContent = 'Setup';  badge.style.cssText = 'background:rgba(255,255,255,0.25);color:#fff'; }
+      if (isCoachMode)  { badge.textContent = 'Coach';  badge.style.cssText = 'background:rgba(59,130,246,0.7);color:#fff'; }
+      if (isFamilyMode) { badge.textContent = 'Family'; badge.style.cssText = 'background:rgba(16,185,129,0.7);color:#fff'; }
+    }
+    // コーチモード：セットアップ専用メニューを非表示
+    if (isCoachMode) {
+      document.getElementById('menu-team-btn')?.classList.add('hidden');
+      document.getElementById('open-setup-menu-btn')?.classList.add('hidden');
+      document.getElementById('menu-admin-link-btn')?.classList.add('hidden');
+    }
+    // ファミリーモード：コーチモードと同レイアウト（設定・新規作成は setAdminMode(false) で非表示済み）
+  }
+
+  // ─── 1年以上前のイベント自動削除（管理者のみ） ──────────────────────
+  async function cleanupOldEvents() {
+    if (!supabaseClient || !isAdmin) return;
+    try {
+      const cutoff = new Date();
+      cutoff.setFullYear(cutoff.getFullYear() - 1);
+      const cutoffStr = cutoff.toISOString().slice(0, 10);
+      const { data: oldEvs } = await supabaseClient
+        .from(TABLE_EVENTS).select('id').lt('event_date', cutoffStr);
+      if (oldEvs && oldEvs.length > 0) {
+        const ids = oldEvs.map(e => e.id);
+        await supabaseClient.from(TABLE_RESPONSES).delete().in('event_id', ids);
+        await supabaseClient.from(TABLE_EVENTS).delete().lt('event_date', cutoffStr);
+      }
+    } catch(e) { console.error('cleanup error:', e); }
+  }
+
+  // ─── データ取得 ──────────────────────────────────────────────────────
+  async function loadEvents() {
+    if (!supabaseClient) return;
+    // セットアップモードで未ログインの場合はイベントを取得しない
+    if (isSetupMode && !isAdmin) { renderCalendar(); renderLegend(); return; }
+    if (isAdmin) await cleanupOldEvents();
+    try {
+      const { data, error } = await supabaseClient
+        .from(TABLE_EVENTS).select(`*, ${TABLE_RESPONSES}(count)`).order('event_date', { ascending: true });
+      if (!error && data) events = data;
+    } catch(e) {}
+    renderCalendar();
+    renderLegend();
+  }
+
+  // ─── カテゴリーフィルター ─────────────────────────────────────────────
+  const CAT_ORDER = ['U7','U8','U9','U10','U11','U12'];
+
+  function loadFilter() {
+    try {
+      const raw = localStorage.getItem(STORAGE_FILTER_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+    } catch(e) { return []; }
+  }
+  function saveFilter(cats) {
+    try {
+      if (cats && cats.length > 0) localStorage.setItem(STORAGE_FILTER_KEY, JSON.stringify(cats));
+      else localStorage.removeItem(STORAGE_FILTER_KEY);
+    } catch(e) {}
+  }
+
+  function toggleCategoryFilter(cat) {
+    if (cat === null) {
+      selectedCategory = [];
+    } else {
+      const idx = selectedCategory.indexOf(cat);
+      if (idx >= 0) selectedCategory.splice(idx, 1);
+      else selectedCategory.push(cat);
+    }
+    saveFilter(selectedCategory);
+    renderLegend();
+    renderCalendar();
+  }
+
+  function filteredEvents() {
+    if (!selectedCategory || selectedCategory.length === 0) return events;
+    return events.filter(ev => selectedCategory.includes(ev.category));
+  }
+
+  function renderLegend() {
+    const el = document.getElementById('cat-legend');
+    const hasFilter = selectedCategory.length > 0;
+    // 「全て」ボタン
+    const allBtn = `<button onclick="toggleCategoryFilter(null)"
+      class="flex-1 flex flex-col items-center py-1 rounded-lg transition-all
+        ${!hasFilter ? 'bg-gray-800 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-50'}">
+      <span class="text-[11px] font-bold leading-tight">全て</span>
+      <span class="h-1 w-4/5 rounded-full mt-0.5" style="background:${!hasFilter ? '#fff' : '#d1d5db'}"></span>
+    </button>`;
+    // カテゴリーボタン（複数選択）
+    const catBtns = CAT_ORDER.map(cat => {
+      const isSelected = selectedCategory.includes(cat);
+      const color = catColor(cat);
+      if (isSelected) {
+        return `<button onclick="toggleCategoryFilter('${cat}')"
+          class="flex-1 flex flex-col items-center py-1 rounded-lg shadow-sm transition-all text-white"
+          style="background:${color}">
+          <span class="text-[11px] font-black leading-tight">${cat}</span>
+          <span class="h-1 w-4/5 rounded-full mt-0.5 bg-white/50"></span>
+        </button>`;
+      } else {
+        return `<button onclick="toggleCategoryFilter('${cat}')"
+          class="flex-1 flex flex-col items-center py-1 rounded-lg transition-all
+            ${hasFilter ? 'text-gray-300 hover:text-gray-500' : 'text-gray-700 hover:bg-gray-50'}">
+          <span class="text-[11px] font-bold leading-tight">${cat}</span>
+          <span class="h-1 w-4/5 rounded-full mt-0.5" style="background:${hasFilter ? '#e5e7eb' : color}"></span>
+        </button>`;
+      }
+    }).join('');
+    el.innerHTML = allBtn + catBtns;
+  }
+
+  // ─── ビュー切り替え ──────────────────────────────────────────────────
+  function setView(mode) {
+    viewMode = mode;
+    try { localStorage.setItem(STORAGE_VIEW_KEY, mode); } catch(e) {}
+    document.getElementById('view-month').classList.toggle('hidden', mode !== 'month');
+    document.getElementById('view-list').classList.toggle('hidden', mode !== 'list');
+    document.getElementById('btn-month').className = `flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${mode === 'month' ? 'bg-red-500 text-white' : 'text-gray-500 hover:text-gray-700'}`;
+    document.getElementById('btn-list').className  = `flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${mode === 'list'  ? 'bg-red-500 text-white' : 'text-gray-500 hover:text-gray-700'}`;
+    renderCalendar();
+  }
+
+  function changeMonth(delta) {
+    currentMonth += delta;
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    if (currentMonth < 0)  { currentMonth = 11; currentYear--; }
+    renderCalendar();
+  }
+  function goToToday() {
+    const now = new Date();
+    currentYear = now.getFullYear(); currentMonth = now.getMonth();
+    renderCalendar();
+  }
+
+  // ─── カレンダー描画 ──────────────────────────────────────────────────
+  function renderCalendar() {
+    const label = `${currentYear}年 ${currentMonth + 1}月`;
+    document.getElementById('month-label').textContent = label;
+    const listLabel = document.getElementById('month-label-list');
+    if (listLabel) listLabel.textContent = label;
+    if (viewMode === 'month') renderMonthView();
+    else renderListView();
+  }
+
+  function renderMonthView() {
+    const body = document.getElementById('cal-body');
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const today = new Date().toISOString().slice(0, 10);
+
+    const evMap = {};
+    filteredEvents().forEach(ev => {
+      if (!evMap[ev.event_date]) evMap[ev.event_date] = [];
+      evMap[ev.event_date].push(ev);
+    });
+
+    let html = '';
+    for (let i = 0; i < firstDay; i++) {
+      html += `<div class="cal-day border-r border-b border-gray-100 bg-gray-50/50 p-1"></div>`;
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const dow = (firstDay + d - 1) % 7;
+      const isToday = dateStr === today;
+      const dayEvs = evMap[dateStr] || [];
+      const isLastCol = dow === 6;
+      const textColor = dow === 0 ? 'text-red-500' : dow === 6 ? 'text-blue-500' : 'text-gray-700';
+      const bgClass = isToday ? 'bg-red-50' : '';
+      html += `<div class="cal-day border-r border-b border-gray-100 p-1 ${bgClass}${isLastCol ? ' border-r-0' : ''}">
+        <div class="flex items-center justify-between mb-0.5">
+          <span class="${isToday ? 'bg-red-500 text-white rounded-full font-black text-[10px]' : `font-bold ${textColor} text-xs`} w-5 h-5 flex items-center justify-center">${d}</span>
+        </div>
+        ${dayEvs.map(ev =>
+          `<span class="event-pill" style="background:${catColor(ev.category)}" onclick="openDetail('${ev.id}')" title="${escHtml(ev.title)}">${ev.category ? escHtml(ev.category) : escHtml(ev.title)}</span>`
+        ).join('')}
+      </div>`;
+    }
+    body.innerHTML = html;
+  }
+
+  function renderListView() {
+    const body = document.getElementById('list-body');
+    const today = new Date().toISOString().slice(0, 10);
+    const ym = `${currentYear}-${String(currentMonth + 1).padStart(2,'0')}`;
+    const monthEvs = filteredEvents().filter(ev => ev.event_date && ev.event_date.startsWith(ym));
+
+    if (monthEvs.length === 0) {
+      const msg = selectedCategory.length > 0
+        ? `<div class="text-center text-gray-400 text-sm py-12 bg-white rounded-2xl shadow border border-gray-200">${selectedCategory.join('・')} のイベントはありません</div>`
+        : '<div class="text-center text-gray-400 text-sm py-12 bg-white rounded-2xl shadow border border-gray-200">この月のイベントはありません</div>';
+      body.innerHTML = msg;
+      return;
+    }
+    body.innerHTML = `<div class="space-y-2">${monthEvs.map(ev => {
+      const d = new Date(ev.event_date + 'T00:00:00');
+      const dateLabel = d.toLocaleDateString('ja-JP', { month:'long', day:'numeric', weekday:'short' });
+      const isPast = ev.event_date < today;
+      const color = catColor(ev.category);
+      const count = ev[TABLE_RESPONSES]?.[0]?.count ?? 0;
+      const countBadge = `<span class="text-xs font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full ml-1">📊 ${count}件</span>`;
+      const catTitle = ev.category
+        ? `<span class="font-black" style="color:${color}">${escHtml(ev.category)}</span><span class="text-gray-300 mx-1">/</span><span class="font-black text-gray-800">${escHtml(ev.title)}</span>`
+        : `<span class="font-black text-gray-800">${escHtml(ev.title)}</span>`;
+      return `<div class="bg-white rounded-2xl shadow border border-gray-100 overflow-hidden flex${isPast ? ' opacity-60' : ''}" onclick="openDetail('${ev.id}')" style="cursor:pointer">
+        <div class="w-1.5 shrink-0" style="background:${color}"></div>
+        <div class="px-4 py-3 flex-1 min-w-0">
+          <p class="text-sm leading-snug mb-1">${catTitle}${countBadge}</p>
+          <div class="text-xs text-gray-500" style="display:inline-grid;grid-template-columns:auto auto;gap:2px 12px">
+            <div>📅 ${dateLabel}</div>
+            <div>${ev.location   ? `📍 ${escHtml(ev.location)}`   : ''}</div>
+            <div>${ev.event_time ? `🕐 ${escHtml(ev.event_time)}` : ''}</div>
+            <div>${ev.transport  ? `🚗 ${escHtml(ev.transport)}`  : ''}</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  // ─── イベント詳細 ────────────────────────────────────────────────────
+  async function openDetail(id) {
+    const ev = events.find(e => e.id === id);
+    if (!ev) return;
+    currentDetailEvent = ev;
+
+    // カテゴリー/タイトル
+    const badge = document.getElementById('detail-cat-badge');
+    badge.classList.add('hidden'); // badge は非表示（タイトル行で代用）
+    const color = catColor(ev.category);
+    const titleEl = document.getElementById('detail-title');
+    if (ev.category) {
+      titleEl.innerHTML =
+        `<span class="font-black" style="color:${color}">${escHtml(ev.category)}</span>` +
+        `<span class="text-gray-300 mx-1">/</span>` +
+        `<span class="text-gray-800">${escHtml(ev.title)}</span>`;
+    } else {
+      titleEl.textContent = ev.title;
+    }
+
+    // 情報
+    const d = new Date(ev.event_date + 'T00:00:00');
+    const dateLabel = d.toLocaleDateString('ja-JP', { month:'long', day:'numeric', weekday:'short' });
+    const _gi = [
+      `📅 ${dateLabel}`,
+      ev.location   ? `📍 ${escHtml(ev.location)}`   : '',
+      ev.event_time ? `🕐 ${escHtml(ev.event_time)}` : '',
+      ev.transport  ? `🚗 ${escHtml(ev.transport)}`  : '',
+    ].map(s => `<div>${s}</div>`).join('');
+    document.getElementById('detail-info').innerHTML = `<div style="display:inline-grid;grid-template-columns:auto auto;gap:2px 12px">${_gi}</div>`;
+
+    const memoEl = document.getElementById('detail-memo');
+    if (ev.memo) { memoEl.textContent = '📝 ' + ev.memo; memoEl.classList.remove('hidden'); }
+    else memoEl.classList.add('hidden');
+
+    // 管理者ボタン表示
+    document.getElementById('detail-admin-btns').classList.toggle('hidden', !isAdmin);
+
+    // 回答件数（イベントデータに含まれているので即時表示）
+    const respCount = ev[TABLE_RESPONSES]?.[0]?.count ?? 0;
+    document.getElementById('detail-resp-label').textContent = '📋 回答を確認';
+    document.getElementById('parent-resp-label').textContent = '📊 結果を見る';
+    document.getElementById('detail-modal').classList.remove('hidden');
+  }
+
+  function closeDetailModal() {
+    document.getElementById('detail-modal').classList.add('hidden');
+    currentDetailEvent = null;
+  }
+  function editCurrentEvent() {
+    if (!currentDetailEvent) return;
+    const id = currentDetailEvent.id;
+    closeDetailModal();
+    openEventModal(id);
+  }
+  async function deleteCurrentEvent() {
+    const ev = currentDetailEvent;
+    if (!ev) return;
+    if (!confirm(`「${ev.title}」を削除しますか？`)) return;
+    try {
+      await supabaseClient.from(TABLE_EVENTS).delete().eq('id', ev.id);
+      closeDetailModal();
+      loadEvents();
+    } catch(e) { alert('削除に失敗しました'); }
+  }
+
+  // ─── 保護者：回答する（ポップアップモーダル） ───────────────────────────
+  function openParentRespond() {
+    const ev = currentDetailEvent;
+    if (!ev) return;
+    if (!supabaseClient) { alert('接続設定が見つかりません'); return; }
+
+    // ヘッダー情報（showParentResultsと同じ形式）
+    const _catTitle = ev.category ? `${escHtml(ev.category)} / ${escHtml(ev.title)}` : escHtml(ev.title);
+    const _dateShort = ev.event_date
+      ? new Date(ev.event_date + 'T00:00:00').toLocaleDateString('ja-JP', { month:'long', day:'numeric', weekday:'short' }) : '';
+    const _col1 = [_dateShort ? `📆 ${_dateShort}` : '', ev.event_time ? `🕐 ${escHtml(ev.event_time)}` : ''];
+    const _col2 = [ev.location ? `📍 ${escHtml(ev.location)}` : '', ev.transport ? `🚗 ${escHtml(ev.transport)}` : ''];
+    const _gridItems = [_col1[0], _col2[0], _col1[1], _col2[1]].map(s => `<div>${s}</div>`).join('');
+
+    const cId = 'cal-respond-popup-container';
+    let modal = document.getElementById('cal-respond-popup-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'cal-respond-popup-modal';
+      modal.className = 'fixed inset-0 z-[110]';
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+      <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="document.getElementById('cal-respond-popup-modal').classList.add('hidden')"></div>
+      <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" style="max-height:calc(100vh - 2rem)">
+        <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-5 py-4 rounded-t-2xl flex items-start justify-between shrink-0">
+          <div class="min-w-0 flex-1">
+            <div class="text-xl font-black leading-tight mb-1">${_catTitle}</div>
+            <div class="text-xs text-white/80"><div style="display:inline-grid;grid-template-columns:auto auto;gap:1px 12px">${_gridItems}</div></div>
+          </div>
+          <button onclick="document.getElementById('cal-respond-popup-modal').classList.add('hidden')" class="text-white/70 hover:text-white text-2xl leading-none shrink-0 ml-3">×</button>
+        </div>
+        <div class="overflow-y-auto flex-1" id="${cId}"></div>
+      </div>`;
+
+    modal.classList.remove('hidden');
+    calRenderRespondForm(ev.id, '', cId);
+  }
+
+  // ─── 回答フォーム（カレンダー内蔵） ─────────────────────────────────────
+  function calRadios(name, opts) {
+    return opts.map(o =>
+      `<button type="button" class="cal-radio-btn" data-name="${name}" data-value="${o.v}" data-color="${o.c}" data-selected="0">
+        ${o.i}<br>${o.v}
+      </button>`
+    ).join('');
+  }
+  function calGetRadioValue(name) {
+    return document.querySelector(`.cal-radio-btn[data-name="${name}"][data-selected="1"]`)?.dataset.value || null;
+  }
+  function calOnJerseyInput(val) {
+    const nameEl = document.getElementById('cal-f-player-name');
+    if (!nameEl) return;
+    const name = calPlayersMap[String(val).trim()] || '';
+    nameEl.textContent = name || '';
+  }
+
+  function calRenderRespondForm(eventId, prefillJersey = '', cId = 'cal-respond-popup-container') {
+    const container = document.getElementById(cId);
+    if (!container) return;
+    container.innerHTML = `
+      <form id="cal-attend-form" class="bg-white px-4 pt-4 pb-1 space-y-3">
+        <div>
+          <label class="block text-gray-700 font-bold text-sm mb-1">背番号 <span class="text-red-500">*</span></label>
+          <div class="flex items-center gap-3">
+            <input type="number" id="cal-f-jersey" min="1" max="99" inputmode="numeric"
+              class="w-24 bg-gray-50 border-2 border-gray-200 rounded-xl px-3 py-2 text-gray-800 focus:outline-none focus:border-red-400 text-2xl font-black text-center"
+              placeholder="10" oninput="calOnJerseyInput(this.value)">
+            <p id="cal-f-player-name" class="text-base font-black text-gray-700"></p>
+          </div>
+        </div>
+        <div>
+          <label class="block text-gray-700 font-bold text-sm mb-1">出欠確認 <span class="text-red-500">*</span></label>
+          <div class="grid grid-cols-3 gap-1.5">
+            ${calRadios('cal-f-attend', [{v:'出席',i:'✅',c:'green'},{v:'欠席',i:'❌',c:'red'},{v:'未定',i:'❓',c:'gray'}])}
+          </div>
+        </div>
+        <div>
+          <label class="block text-gray-700 font-bold text-sm mb-1">送迎について <span class="text-red-500">*</span></label>
+          <div class="grid grid-cols-3 gap-1.5">
+            ${calRadios('cal-f-transport', [{v:'大丈夫',i:'👍',c:'gray'},{v:'乗せて欲しい',i:'🙏',c:'blue'},{v:'未定',i:'❓',c:'gray'}])}
+          </div>
+        </div>
+        <div>
+          <label class="block text-gray-700 font-bold text-sm mb-1">配車について <span class="text-red-500">*</span></label>
+          <div class="grid grid-cols-3 gap-1.5">
+            ${calRadios('cal-f-carpool', [{v:'できる',i:'🚗',c:'amber'},{v:'難しい',i:'🚫',c:'red'},{v:'未定',i:'❓',c:'gray'}])}
+          </div>
+        </div>
+        <div>
+          <label class="block text-gray-700 font-bold text-sm mb-1">備考（何かあれば）</label>
+          <input type="text" id="cal-f-notes" placeholder="自由入力"
+            class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-3 py-2 text-gray-800 focus:outline-none focus:border-red-400">
+        </div>
+        <div id="cal-form-status" class="hidden text-sm rounded-xl px-3 py-2 font-medium"></div>
+        <button type="button" id="cal-submit-btn" onclick="calSubmitResponse('${eventId}', '${cId}')"
+          class="w-full bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-2xl text-base transition-colors">
+          <span id="cal-submit-text">回答を送信する</span>
+          <span id="cal-submit-loading" class="hidden">送信中...</span>
+        </button>
+      </form>`;
+
+    container.querySelectorAll('.cal-radio-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const name = btn.dataset.name;
+        container.querySelectorAll(`.cal-radio-btn[data-name="${name}"]`).forEach(b => {
+          b.dataset.selected = (b === btn) ? '1' : '0';
+        });
+      });
+    });
+
+    // 選手名マップを読み込み（まだ読み込んでいない場合）
+    if (Object.keys(calPlayersMap).length === 0) {
+      supabaseClient.from('app_records').select('payload').eq('type', 'player').then(({ data }) => {
+        if (data) data.forEach(row => {
+          const p = row.payload || {};
+          if (p.number) calPlayersMap[String(p.number).trim()] = p.name || '';
+        });
+      });
+    }
+
+    if (prefillJersey) {
+      const jerseyInput = document.getElementById('cal-f-jersey');
+      if (jerseyInput) { jerseyInput.value = prefillJersey; calOnJerseyInput(prefillJersey); }
+    }
+  }
+
+  async function calSubmitResponse(eventId, cId = 'cal-respond-popup-container') {
+    const btn      = document.getElementById('cal-submit-btn');
+    const statusEl = document.getElementById('cal-form-status');
+    const setStatus = (el, msg, type) => {
+      el.className = `text-sm rounded-xl px-4 py-3 font-medium ${type === 'error' ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-green-50 border border-green-200 text-green-700'}`;
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    };
+
+    const jersey    = document.getElementById('cal-f-jersey').value.trim();
+    const attend    = calGetRadioValue('cal-f-attend');
+    const transport = calGetRadioValue('cal-f-transport');
+    const carpool   = calGetRadioValue('cal-f-carpool');
+
+    if (!jersey)    { setStatus(statusEl, '背番号を入力してください', 'error'); return; }
+    if (!attend)    { setStatus(statusEl, '出欠確認を選択してください', 'error'); return; }
+    if (!transport) { setStatus(statusEl, '送迎について選択してください', 'error'); return; }
+    if (!carpool)   { setStatus(statusEl, '配車について選択してください', 'error'); return; }
+
+    btn.disabled = true;
+    document.getElementById('cal-submit-text').classList.add('hidden');
+    document.getElementById('cal-submit-loading').classList.remove('hidden');
+
+    const { error } = await supabaseClient
+      .from(TABLE_RESPONSES)
+      .upsert({
+        event_id:       eventId,
+        jersey_number:  jersey,
+        attendance:     attend,
+        transport_need: transport,
+        carpool,
+        notes: document.getElementById('cal-f-notes').value.trim() || null,
+      }, { onConflict: 'event_id,jersey_number' });
+
+    btn.disabled = false;
+    document.getElementById('cal-submit-text').classList.remove('hidden');
+    document.getElementById('cal-submit-loading').classList.add('hidden');
+
+    if (error) {
+      setStatus(statusEl, '送信に失敗しました。もう一度お試しください。', 'error');
+      console.error(error);
+      return;
+    }
+
+    const name = calPlayersMap[String(jersey).trim()] || '';
+    document.getElementById(cId).innerHTML = `
+      <div class="bg-white p-10 text-center space-y-4">
+        <div class="text-6xl">✅</div>
+        <h3 class="text-xl font-black text-gray-800">回答を送信しました</h3>
+        ${name ? `<p class="text-gray-500 font-bold">#${escHtml(jersey)} ${escHtml(name)}</p>` : ''}
+        <p class="text-gray-400 text-sm">ありがとうございました</p>
+        <button type="button" onclick="calRenderRespondForm('${eventId}', '', '${cId}')"
+          class="w-full bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-2xl text-base transition-colors">
+          👨‍👩‍👦 兄弟・別の選手の回答をする
+        </button>
+        <button type="button" onclick="calRenderRespondForm('${eventId}', '${jersey}', '${cId}')"
+          class="mt-1 text-sm text-gray-400 underline">この背番号の回答を修正する</button>
+      </div>`;
+  }
+
+  // ─── 保護者：結果を見る ──────────────────────────────────────────────
+  async function showParentResults() {
+    const ev = currentDetailEvent;
+    if (!ev || !supabaseClient) return;
+
+    // attendance.html の showParentResults と同じ構成
+    const { data: responses, error } = await supabaseClient
+      .from(TABLE_RESPONSES).select('*').eq('event_id', ev.id).order('jersey_number');
+    if (error) { alert('取得に失敗しました'); return; }
+
+    // ヘッダー情報
+    const _catTitle = ev.category ? `${escHtml(ev.category)} / ${escHtml(ev.title)}` : escHtml(ev.title);
+    const _dateShort = ev.event_date
+      ? new Date(ev.event_date + 'T00:00:00').toLocaleDateString('ja-JP', { month:'long', day:'numeric', weekday:'short' }) : '';
+    const _col1 = [_dateShort ? `📆 ${_dateShort}` : '', ev.event_time ? `🕐 ${escHtml(ev.event_time)}` : ''];
+    const _col2 = [ev.location ? `📍 ${escHtml(ev.location)}` : '', ev.transport ? `🚗 ${escHtml(ev.transport)}` : ''];
+    const _gridItems = [_col1[0], _col2[0], _col1[1], _col2[1]].map(s => `<div>${s}</div>`).join('');
+
+    // 選手名マップ取得
+    calPlayersMap = {};
+    try {
+      const { data: players } = await supabaseClient
+        .from('app_records').select('payload').eq('type', 'player');
+      if (players) players.forEach(row => {
+        const p = row.payload || {};
+        if (p.number) calPlayersMap[String(p.number).trim()] = p.name || '';
+      });
+    } catch(e) {}
+
+    calDetailResponses = responses || [];
+    calDetailSortCol   = null;
+    calDetailSortAsc   = true;
+
+    let modal = document.getElementById('parent-result-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'parent-result-modal';
+      modal.className = 'fixed inset-0 z-[110]';
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+      <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="document.getElementById('parent-result-modal').classList.add('hidden')"></div>
+      <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" style="max-height:calc(100vh - 2rem)">
+        <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-5 py-4 rounded-t-2xl flex items-start justify-between shrink-0">
+          <div class="min-w-0 flex-1">
+            <div class="text-xl font-black leading-tight mb-1">${_catTitle}</div>
+            <div class="text-xs text-white/80"><div style="display:inline-grid;grid-template-columns:auto auto;gap:1px 12px">${_gridItems}</div></div>
+          </div>
+          <button onclick="document.getElementById('parent-result-modal').classList.add('hidden')" class="text-white/70 hover:text-white text-2xl leading-none shrink-0 ml-3">×</button>
+        </div>
+        <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 shrink-0">
+          <div class="grid grid-cols-4 gap-2 text-center">
+            <div class="bg-white rounded-xl p-2.5 shadow-sm flex flex-col"><p class="text-xs text-gray-400 leading-tight flex-1 flex items-end justify-center pb-1">回答数</p><p class="text-xl font-black text-gray-700">${responses.length}</p></div>
+            <div class="bg-green-50 rounded-xl p-2.5 flex flex-col"><p class="text-xs text-gray-400 leading-tight flex-1 flex items-end justify-center pb-1">出席</p><p class="text-xl font-black text-green-600">${responses.filter(r=>r.attendance==='出席').length}</p></div>
+            <div class="bg-red-50 rounded-xl p-2.5 flex flex-col"><p class="text-xs text-gray-400 leading-tight flex-1 flex items-end justify-center pb-1">乗せて<br>欲しい</p><p class="text-xl font-black text-red-600">${responses.filter(r=>r.transport_need==='乗せて欲しい').length}</p></div>
+            <div class="bg-blue-50 rounded-xl p-2.5 flex flex-col"><p class="text-xs text-gray-400 leading-tight flex-1 flex items-end justify-center pb-1">配車<br>できる</p><p class="text-xl font-black text-blue-600">${responses.filter(r=>r.carpool==='できる').length}</p></div>
+          </div>
+        </div>
+        <div class="overflow-y-auto flex-1">
+          ${buildCalDetailTableHtml(calApplySort(calDetailResponses, 'jersey_number', true))}
+        </div>
+      </div>`;
+
+    modal.querySelectorAll('tbody tr[data-resp]').forEach(tr => {
+      tr.addEventListener('click', () => showCalResponseDetail(JSON.parse(tr.dataset.resp)));
+    });
+    modal.classList.remove('hidden');
+  }
+
+  // ─── 選手管理 ────────────────────────────────────────────────────────
+  const TABLE_PLAYERS = 'app_records';
+  let calPlayerRecords = [];
+  let calPlayerToDelete = null;
+  let calPlayerAccordionState = {};
+  const CAL_PLAYER_CATEGORIES = ['U7','U8','U9','U10','U11','U12'];
+
+  function getCurrentFiscalYearNum() {
+    const now = new Date();
+    const year = now.getFullYear();
+    return (now.getMonth() + 1) >= 4 ? year : year - 1;
+  }
+  function getCalPlayerCurrentCategory(p) {
+    const base = p.payload?.base_category || p.payload?.category || 'U7';
+    const baseIndex = CAL_PLAYER_CATEGORIES.indexOf(base);
+    if (baseIndex === -1) return '未設定';
+    const entryYear = p.payload?.entry_fiscal_year
+      ? Number(p.payload.entry_fiscal_year)
+      : getCurrentFiscalYearNum();
+    const displayIndex = baseIndex + (getCurrentFiscalYearNum() - entryYear);
+    if (displayIndex < 0) return '未入会';
+    if (displayIndex >= CAL_PLAYER_CATEGORIES.length) return '卒業生';
+    return CAL_PLAYER_CATEGORIES[displayIndex];
+  }
+  function populateCalPlayerYearSelect() {
+    const sel = document.getElementById('cal-player-entry-year');
+    if (!sel) return;
+    const currentYear = getCurrentFiscalYearNum();
+    sel.innerHTML = '';
+    for (let y = currentYear + 1; y >= currentYear - 10; y--) {
+      const opt = document.createElement('option');
+      opt.value = y;
+      opt.textContent = y + '年度';
+      sel.appendChild(opt);
+    }
+  }
+
+  async function loadCalPlayers() {
+    if (!supabaseClient) return;
+    const { data, error } = await supabaseClient
+      .from(TABLE_PLAYERS).select('id, payload, created_at').eq('type', 'player');
+    if (error) { console.error('loadCalPlayers:', error); return; }
+    calPlayerRecords = data || [];
+    // calPlayersMap も更新
+    calPlayersMap = {};
+    calPlayerRecords.forEach(p => {
+      if (p.payload?.number) calPlayersMap[String(p.payload.number).trim()] = p.payload.name || '';
+    });
+    renderCalPlayerList();
+  }
+
+  function openCalPlayerListModal() {
+    document.getElementById('settings-menu')?.classList.add('hidden');
+    calPlayerAccordionState = {};
+    document.getElementById('cal-player-list-modal').classList.remove('hidden');
+    loadCalPlayers();
+  }
+  function closeCalPlayerListModal() {
+    document.getElementById('cal-player-list-modal').classList.add('hidden');
+  }
+
+  function renderCalPlayerList() {
+    const listEl  = document.getElementById('cal-player-list');
+    const emptyEl = document.getElementById('cal-player-empty');
+    if (!listEl) return;
+    if (calPlayerRecords.length === 0) {
+      listEl.innerHTML = '';
+      emptyEl?.classList.remove('hidden');
+      return;
+    }
+    emptyEl?.classList.add('hidden');
+    const grouped = {};
+    [...CAL_PLAYER_CATEGORIES, '卒業生', '未入会', '未設定'].forEach(cat => { grouped[cat] = []; });
+    calPlayerRecords.forEach(p => {
+      const cat = getCalPlayerCurrentCategory(p);
+      if (grouped[cat] !== undefined) grouped[cat].push(p);
+      else grouped['未設定'].push(p);
+    });
+    listEl.innerHTML = '';
+    const renderSection = (label, list) => {
+      if (list.length === 0) return;
+      const section = document.createElement('div');
+      section.className = 'space-y-2';
+      const isOpen = calPlayerAccordionState[label] === true;
+      const body = document.createElement('div');
+      body.className = `pl-2 space-y-2${isOpen ? '' : ' hidden'}`;
+      const header = document.createElement('button');
+      header.className = 'w-full text-left bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2.5 rounded-xl font-bold text-sm flex items-center justify-between';
+      header.innerHTML = `<span>${escHtml(label)}（${list.length}人）</span><span>${isOpen ? '▼' : '▶'}</span>`;
+      header.addEventListener('click', () => {
+        calPlayerAccordionState[label] = body.classList.contains('hidden');
+        renderCalPlayerList();
+      });
+      list.sort((a, b) => Number(a.payload?.number || 0) - Number(b.payload?.number || 0))
+        .forEach(p => {
+          const card = document.createElement('div');
+          card.className = 'bg-white rounded-xl shadow p-3 flex items-center justify-between gap-3';
+          card.innerHTML = `
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center justify-center min-w-[2.5rem] px-2 py-1 rounded-lg bg-red-600 text-white text-sm font-black">#${escHtml(p.payload?.number || '')}</span>
+              <span class="font-bold text-gray-800">${escHtml(p.payload?.name || '')}</span>
+            </div>
+            <div class="flex gap-2">
+              <button class="edit-btn bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">編集</button>
+              <button class="del-btn bg-red-500 hover:bg-red-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">削除</button>
+            </div>`;
+          card.querySelector('.edit-btn').addEventListener('click', e => { e.stopPropagation(); openCalPlayerModal(p.id); });
+          card.querySelector('.del-btn').addEventListener('click',  e => { e.stopPropagation(); openCalDeletePlayerModal(p); });
+          body.appendChild(card);
+        });
+      section.appendChild(header);
+      section.appendChild(body);
+      listEl.appendChild(section);
+    };
+    CAL_PLAYER_CATEGORIES.forEach(cat => renderSection(cat, grouped[cat]));
+    renderSection('卒業生', grouped['卒業生']);
+    renderSection('未入会', grouped['未入会']);
+    renderSection('未設定', grouped['未設定']);
+  }
+
+  function openCalPlayerModal(id) {
+    const errEl = document.getElementById('cal-player-modal-error');
+    errEl.classList.add('hidden');
+    populateCalPlayerYearSelect();
+    if (id) {
+      const rec = calPlayerRecords.find(p => p.id === id);
+      if (!rec) return;
+      document.getElementById('cal-player-modal-title').textContent = '選手を編集';
+      document.getElementById('cal-player-save-label').textContent  = '保存する';
+      document.getElementById('cal-player-edit-id').value    = id;
+      document.getElementById('cal-player-number').value     = rec.payload?.number || '';
+      document.getElementById('cal-player-name').value       = rec.payload?.name || '';
+      document.getElementById('cal-player-entry-year').value    = rec.payload?.entry_fiscal_year || getCurrentFiscalYearNum();
+      document.getElementById('cal-player-base-category').value = rec.payload?.base_category || rec.payload?.category || 'U7';
+    } else {
+      document.getElementById('cal-player-modal-title').textContent = '選手登録';
+      document.getElementById('cal-player-save-label').textContent  = '選手を登録';
+      document.getElementById('cal-player-edit-id').value       = '';
+      document.getElementById('cal-player-number').value        = '';
+      document.getElementById('cal-player-name').value          = '';
+      document.getElementById('cal-player-entry-year').value    = getCurrentFiscalYearNum();
+      document.getElementById('cal-player-base-category').value = 'U7';
+    }
+    document.getElementById('cal-player-modal').classList.remove('hidden');
+  }
+  function closeCalPlayerModal() {
+    document.getElementById('cal-player-modal').classList.add('hidden');
+  }
+
+  async function saveCalPlayer() {
+    const id            = document.getElementById('cal-player-edit-id').value;
+    const number        = document.getElementById('cal-player-number').value.trim();
+    const name          = document.getElementById('cal-player-name').value.trim();
+    const base_category = document.getElementById('cal-player-base-category').value;
+    const entry_fiscal_year = Number(document.getElementById('cal-player-entry-year').value);
+    const errEl    = document.getElementById('cal-player-modal-error');
+    const saveLabel = document.getElementById('cal-player-save-label');
+    errEl.classList.add('hidden');
+    if (!number) { errEl.textContent = '背番号を入力してください'; errEl.classList.remove('hidden'); return; }
+    if (!name)   { errEl.textContent = '選手名を入力してください'; errEl.classList.remove('hidden'); return; }
+    const payload = { number, name, base_category, entry_fiscal_year };
+    saveLabel.textContent = '保存中...';
+    try {
+      if (id) {
+        const { error } = await supabaseClient.from(TABLE_PLAYERS).update({ payload }).eq('id', id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabaseClient.from(TABLE_PLAYERS).insert({ type: 'player', payload });
+        if (error) throw error;
+      }
+      closeCalPlayerModal();
+      await loadCalPlayers();
+    } catch(e) {
+      errEl.textContent = '保存に失敗しました: ' + (e.message || e);
+      errEl.classList.remove('hidden');
+    } finally {
+      saveLabel.textContent = id ? '保存する' : '選手を登録';
+    }
+  }
+
+  function openCalDeletePlayerModal(p) {
+    calPlayerToDelete = p;
+    document.getElementById('cal-player-delete-modal').classList.remove('hidden');
+  }
+  function closeCalDeletePlayerModal() {
+    calPlayerToDelete = null;
+    document.getElementById('cal-player-delete-modal').classList.add('hidden');
+  }
+  async function handleCalDeletePlayer() {
+    if (!calPlayerToDelete) return;
+    const textEl    = document.getElementById('cal-player-delete-text');
+    const loadingEl = document.getElementById('cal-player-delete-loading');
+    textEl.classList.add('hidden');
+    loadingEl.classList.remove('hidden');
+    const { error } = await supabaseClient.from(TABLE_PLAYERS).delete().eq('id', calPlayerToDelete.id);
+    textEl.classList.remove('hidden');
+    loadingEl.classList.add('hidden');
+    if (error) { alert('削除に失敗しました'); return; }
+    closeCalDeletePlayerModal();
+    await loadCalPlayers();
+  }
+
+  // ─── リンクをコピー・回答を確認 ──────────────────────────────────────
+  async function copyEventLink() {
+    const ev = currentDetailEvent;
+    if (!ev) return;
+    const cfg = loadConfig();
+    if (!cfg?.supabase_url) return;
+    const hash = buildHashString(cfg);
+    const base = getBaseUrl();
+    const link = base ? `${base}?respond=${ev.id}#${hash}` : '';
+    if (!link) { alert('公開URLが取得できません。接続設定のURLを確認してください。'); return; }
+
+    const btn = document.querySelector('[onclick="copyEventLink()"]');
+    const setBtn = t => { if (btn) btn.innerHTML = t; };
+
+    setBtn('🔄 短縮URL生成中...');
+    const short = await shortenUrl(link);
+    const finalUrl = short || link;
+
+    try {
+      await navigator.clipboard.writeText(finalUrl);
+      setBtn(short ? `✅ 短縮URLをコピー` : '✅ コピーしました');
+      setTimeout(() => setBtn('🔗 リンクをコピー'), 2500);
+    } catch(e) {
+      prompt('以下のリンクをコピーしてください', finalUrl);
+      setBtn('🔗 リンクをコピー');
+    }
+  }
+  // ─── 回答確認モーダル（attendance.html と同等） ──────────────────────
+  let calDetailResponses = [];
+  let calDetailSortCol   = null;
+  let calDetailSortAsc   = true;
+  let calPlayersMap      = {};
+
+  function closeResponseModal() {
+    document.getElementById('response-modal').classList.add('hidden');
+  }
+  function closeCalMemoPopup() {
+    document.getElementById('cal-memo-popup').classList.add('hidden');
+  }
+
+  const CAL_SORT_ORDER = {
+    attendance:     { '出席':0, '欠席':1, '未定':2 },
+    transport_need: { '乗せて欲しい':0, '大丈夫':1, '未定':2 },
+    carpool:        { 'できる':0, '難しい':1, '未定':2 },
+  };
+  function calApplySort(arr, col, asc) {
+    if (!col) return arr;
+    if (col === 'jersey_number') {
+      return [...arr].sort((a, b) => {
+        const va = Number(a.jersey_number) || 0, vb = Number(b.jersey_number) || 0;
+        return asc ? va - vb : vb - va;
+      });
+    }
+    const map = CAL_SORT_ORDER[col] || {};
+    return [...arr].sort((a, b) => {
+      const va = map[a[col]] ?? 99, vb = map[b[col]] ?? 99;
+      return asc ? va - vb : vb - va;
+    });
+  }
+  function calSortIcon(col) {
+    if (calDetailSortCol !== col) return '<span class="text-gray-300 ml-0.5">⇅</span>';
+    return calDetailSortAsc ? '<span class="text-red-400 ml-0.5">▲</span>' : '<span class="text-red-400 ml-0.5">▼</span>';
+  }
+  function sortCalDetailTable(col) {
+    if (calDetailSortCol === col) calDetailSortAsc = !calDetailSortAsc;
+    else { calDetailSortCol = col; calDetailSortAsc = true; }
+    const listEl = document.getElementById('cal-response-list');
+    if (!listEl) return;
+    const sorted = calApplySort(calDetailResponses, calDetailSortCol, calDetailSortAsc);
+    listEl.innerHTML = buildCalDetailTableHtml(sorted);
+    listEl.querySelectorAll('tbody tr[data-resp]').forEach(tr => {
+      tr.addEventListener('click', () => showCalResponseDetail(JSON.parse(tr.dataset.resp)));
+    });
+  }
+  function buildCalDetailTableHtml(responses) {
+    const rideLabel = r => r.transport_need === '乗せて欲しい'
+      ? `<span class="badge ${TRANSPORT_COLOR['乗せて欲しい']}" style="white-space:normal;line-height:1.3;text-align:center;min-width:3.5rem">乗せて<br>欲しい</span>`
+      : `<span class="badge ${TRANSPORT_COLOR[r.transport_need] || 'bg-gray-100 text-gray-500'}">${r.transport_need || '—'}</span>`;
+    if (responses.length === 0) return '<p class="text-center text-gray-400 text-sm py-8">まだ回答がありません</p>';
+    return `<table class="resp-table w-full">
+      <colgroup>
+        <col style="width:30%"><col style="width:17.5%"><col style="width:17.5%"><col style="width:17.5%"><col style="width:17.5%">
+      </colgroup>
+      <thead style="position:sticky;top:0;z-index:10;background:#f9fafb">
+        <tr>
+          <th class="text-left cursor-pointer select-none" onclick="sortCalDetailTable('jersey_number')">#名前${calSortIcon('jersey_number')}</th>
+          <th class="cursor-pointer select-none" onclick="sortCalDetailTable('attendance')">出欠${calSortIcon('attendance')}</th>
+          <th class="cursor-pointer select-none" onclick="sortCalDetailTable('transport_need')">送迎${calSortIcon('transport_need')}</th>
+          <th class="cursor-pointer select-none" onclick="sortCalDetailTable('carpool')">配車${calSortIcon('carpool')}</th>
+          <th class="text-left">備考</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${responses.map(r => {
+          const name  = calPlayersMap[String(r.jersey_number || '').trim()] || '';
+          const notes = r.notes || '';
+          const rowData = escHtml(JSON.stringify({ jersey_number: r.jersey_number, attendance: r.attendance, transport_need: r.transport_need, carpool: r.carpool, notes }));
+          return `<tr class="cursor-pointer hover:bg-blue-50 active:bg-blue-100" data-resp="${rowData}">
+            <td class="text-left">
+              <span class="block text-xs font-black text-gray-400">${escHtml(String(r.jersey_number || ''))}</span>
+              <span class="font-medium text-gray-800">${escHtml(name)}</span>
+            </td>
+            <td><span class="badge ${ATTEND_COLOR[r.attendance] || 'bg-gray-100 text-gray-500'}">${r.attendance || '—'}</span></td>
+            <td>${rideLabel(r)}</td>
+            <td><span class="badge ${CARPOOL_COLOR[r.carpool] || 'bg-gray-100 text-gray-500'}">${r.carpool || '—'}</span></td>
+            <td class="text-left text-gray-500 text-xs"><div style="overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-all">${escHtml(notes)}</div></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+  }
+  function showCalResponseDetail(d) {
+    const name = calPlayersMap[String(d.jersey_number || '').trim()] || '';
+    const rideHtml = d.transport_need === '乗せて欲しい'
+      ? `<span class="badge ${TRANSPORT_COLOR['乗せて欲しい']}" style="white-space:normal;line-height:1.3;text-align:center;min-width:3.5rem">乗せて<br>欲しい</span>`
+      : `<span class="badge ${TRANSPORT_COLOR[d.transport_need] || 'bg-gray-100 text-gray-500'}">${escHtml(d.transport_need || '—')}</span>`;
+    document.getElementById('cal-memo-popup-content').innerHTML = `
+      <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-5 py-4 rounded-t-2xl -mx-5 -mt-5 mb-4 flex items-center gap-3">
+        <span class="text-3xl font-black text-white/30">${escHtml(String(d.jersey_number || ''))}</span>
+        <span class="text-xl font-black">${escHtml(name || String(d.jersey_number || ''))}</span>
+      </div>
+      <div class="grid grid-cols-3 gap-2 text-center mb-3">
+        <div class="text-xs font-medium text-gray-400">出欠</div>
+        <div class="text-xs font-medium text-gray-400">送迎</div>
+        <div class="text-xs font-medium text-gray-400">配車</div>
+        <div><span class="badge ${ATTEND_COLOR[d.attendance] || 'bg-gray-100 text-gray-500'}">${escHtml(d.attendance || '—')}</span></div>
+        <div>${rideHtml}</div>
+        <div><span class="badge ${CARPOOL_COLOR[d.carpool] || 'bg-gray-100 text-gray-500'}">${escHtml(d.carpool || '—')}</span></div>
+      </div>
+      <div class="border-t border-gray-100 pt-3">
+        <span class="text-xs font-medium text-gray-400 block mb-1">備考</span>
+        <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap min-h-[1.5rem]">${escHtml(d.notes || '')}</p>
+      </div>`;
+    document.getElementById('cal-memo-popup').classList.remove('hidden');
+  }
+
+  async function viewResponses() {
+    const ev = currentDetailEvent;
+    if (!ev || !supabaseClient) return;
+    closeDetailModal();
+
+    // モーダルを先に開いてローディング
+    // カテゴリー / タイトル
+    document.getElementById('resp-modal-cat-badge').classList.add('hidden');
+    document.getElementById('resp-modal-title').innerHTML = ev.category
+      ? `${escHtml(ev.category)} / ${escHtml(ev.title)}`
+      : escHtml(ev.title);
+    // イベント情報サブタイトル（attendance.html の openDetail と同形式）
+    const d = new Date(ev.event_date + 'T00:00:00');
+    const dateShort = ev.event_date
+      ? d.toLocaleDateString('ja-JP', { month:'long', day:'numeric', weekday:'short' })
+      : '';
+    const col1 = [
+      dateShort      ? `📆 ${dateShort}`                  : '',
+      ev.event_time  ? `🕐 ${escHtml(ev.event_time)}`    : '',
+    ];
+    const col2 = [
+      ev.location    ? `📍 ${escHtml(ev.location)}`      : '',
+      ev.transport   ? `🚗 ${escHtml(ev.transport)}` : '',
+    ];
+    const gridItems = [col1[0], col2[0], col1[1], col2[1]]
+      .map(s => `<div>${s}</div>`).join('');
+    const subtitleEl = document.getElementById('resp-modal-subtitle');
+    subtitleEl.innerHTML =
+      `<div style="display:inline-grid;grid-template-columns:auto auto;gap:1px 12px">${gridItems}</div>`;
+    document.getElementById('cal-summary-total').textContent     = '…';
+    document.getElementById('cal-summary-attend').textContent    = '…';
+    document.getElementById('cal-summary-need-ride').textContent = '…';
+    document.getElementById('cal-summary-can-drive').textContent = '…';
+    document.getElementById('cal-response-list').innerHTML =
+      '<p class="text-center text-gray-400 text-sm py-8">読み込み中…</p>';
+    document.getElementById('cal-no-responses').classList.add('hidden');
+    document.getElementById('response-modal').classList.remove('hidden');
+    calDetailResponses = [];
+    calDetailSortCol   = null;
+    calDetailSortAsc   = true;
+
+    try {
+      // 選手名マップを取得
+      calPlayersMap = {};
+      try {
+        const { data: players } = await supabaseClient
+          .from('app_records').select('payload').eq('type', 'player');
+        if (players) players.forEach(row => {
+          const p = row.payload || {};
+          if (p.number) calPlayersMap[String(p.number).trim()] = p.name || '';
+        });
+      } catch(e) {}
+
+      // 回答データ取得
+      const { data: responses, error } = await supabaseClient
+        .from(TABLE_RESPONSES).select('*').eq('event_id', ev.id).order('jersey_number');
+      if (error) throw error;
+
+      calDetailResponses = responses || [];
+      calDetailSortCol   = 'jersey_number';
+      calDetailSortAsc   = true;
+
+      // サマリー更新
+      document.getElementById('cal-summary-total').textContent     = responses.length;
+      document.getElementById('cal-summary-attend').textContent    = responses.filter(r => r.attendance    === '出席').length;
+      document.getElementById('cal-summary-need-ride').textContent = responses.filter(r => r.transport_need === '乗せて欲しい').length;
+      document.getElementById('cal-summary-can-drive').textContent = responses.filter(r => r.carpool       === 'できる').length;
+
+      const listEl = document.getElementById('cal-response-list');
+      const noEl   = document.getElementById('cal-no-responses');
+      if (responses.length === 0) {
+        listEl.innerHTML = '';
+        noEl.classList.remove('hidden');
+      } else {
+        noEl.classList.add('hidden');
+        listEl.innerHTML = buildCalDetailTableHtml(calApplySort(responses, 'jersey_number', true));
+        listEl.querySelectorAll('tbody tr[data-resp]').forEach(tr => {
+          tr.addEventListener('click', () => showCalResponseDetail(JSON.parse(tr.dataset.resp)));
+        });
+      }
+    } catch(e) {
+      document.getElementById('cal-response-list').innerHTML =
+        '<p class="text-center text-red-400 text-sm py-8">読み込みに失敗しました</p>';
+    }
+  }
+
+  // ─── 時間ピッカー ────────────────────────────────────────────────────
+  let tpRow    = 0;
+  let tpCursor = 0;
+  let tpStart  = ['','','',''];
+  let tpEnd    = ['','','',''];
+  let tpAmPm   = '';
+
+  function updateEvTimeBtn() {
+    const val = document.getElementById('ev-time').value || '';
+    const btn = document.getElementById('ev-time-display');
+    if (btn) {
+      btn.textContent = val ? val : 'タップして時間を設定';
+      btn.parentElement.classList.toggle('text-gray-800', !!val);
+      btn.parentElement.classList.toggle('text-gray-400', !val);
+    }
+  }
+
+  function openTimePicker() {
+    const val = (document.getElementById('ev-time').value || '').trim();
+    tpStart = ['','','',''];
+    tpEnd   = ['','','',''];
+    tpAmPm  = '';
+    if (val === '終日') {
+      tpAmPm = '終日';
+    } else if (val) {
+      let body = val;
+      if (body.startsWith('午前')) { tpAmPm = '午前'; body = body.slice(2).trim(); }
+      else if (body.startsWith('午後')) { tpAmPm = '午後'; body = body.slice(2).trim(); }
+      const parts = body.split('〜');
+      const parse = (s, arr) => {
+        const m = s.trim().match(/^(\d{1,2}):(\d{2})$/);
+        if (!m) return;
+        const h = m[1].padStart(2,'0');
+        arr[0]=h[0]; arr[1]=h[1]; arr[2]=m[2][0]; arr[3]=m[2][1];
+      };
+      if (parts[0]) parse(parts[0], tpStart);
+      if (parts[1]) parse(parts[1], tpEnd);
+    }
+    tpRow = 0;
+    tpCursor = tpStart.findIndex(d => d === '');
+    if (tpCursor < 0) tpCursor = 4;
+    updateTpDisplay();
+    updateTpAmPmDisplay();
+    document.getElementById('time-picker-modal').classList.remove('hidden');
+  }
+
+  function closeTimePicker() {
+    document.getElementById('time-picker-modal').classList.add('hidden');
+  }
+
+  function tpMoveCursor(row, pos) {
+    tpRow = row; tpCursor = pos;
+    updateTpDisplay();
+  }
+
+  function tpInput(digit) {
+    const arr = tpRow === 0 ? tpStart : tpEnd;
+    const d = String(digit);
+    if (tpCursor === 0) {
+      if (digit >= 3) { arr[0]='0'; arr[1]=d; arr[2]='0'; arr[3]='0'; tpCursor=2; }
+      else { arr[0]=d; tpCursor=1; }
+    } else if (tpCursor === 1) {
+      arr[1]=d; arr[2]='0'; arr[3]='0'; tpCursor=2;
+    } else if (tpCursor === 2) {
+      arr[2]=d; tpCursor=3;
+    } else if (tpCursor === 3) {
+      arr[3]=d; tpCursor=4;
+      if (tpRow === 0) { tpRow=1; tpCursor=0; }
+    }
+    updateTpDisplay();
+  }
+
+  function tpBackspace() {
+    if (tpCursor > 0) {
+      const arr = tpRow === 0 ? tpStart : tpEnd;
+      tpCursor--; arr[tpCursor]='';
+    } else if (tpRow === 1) {
+      tpRow=0; tpCursor=3; tpStart[3]='';
+    }
+    updateTpDisplay();
+  }
+
+  function tpNow() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2,'0');
+    const m = String(now.getMinutes()).padStart(2,'0');
+    const arr = tpRow === 0 ? tpStart : tpEnd;
+    arr[0]=h[0]; arr[1]=h[1]; arr[2]=m[0]; arr[3]=m[1];
+    tpCursor=4;
+    updateTpDisplay();
+  }
+
+  function clearTimePicker() {
+    tpStart=['','','','']; tpEnd=['','','',''];
+    tpAmPm=''; tpRow=0; tpCursor=0;
+    updateTpDisplay(); updateTpAmPmDisplay();
+  }
+
+  function tpSetAmPm(val) {
+    tpAmPm = val;
+    updateTpAmPmDisplay();
+    if (val === '午前' || val === '午後' || val === '終日') {
+      document.getElementById('ev-time').value = val;
+      updateEvTimeBtn();
+      closeTimePicker();
+    }
+  }
+
+  function updateTpAmPmDisplay() {
+    const map = { '':'tp-btn-none', '午前':'tp-btn-am', '午後':'tp-btn-pm', '終日':'tp-btn-all' };
+    ['tp-btn-none','tp-btn-am','tp-btn-pm','tp-btn-all'].forEach(id => {
+      document.getElementById(id)?.classList.remove('active');
+    });
+    const activeId = map[tpAmPm];
+    if (activeId) document.getElementById(activeId)?.classList.add('active');
+    const disabled = tpAmPm === '終日';
+    document.querySelectorAll('.tp-digit, .tp-num').forEach(el => {
+      el.style.opacity = disabled ? '0.35' : '';
+      el.style.pointerEvents = disabled ? 'none' : '';
+    });
+  }
+
+  function updateTpDisplay() {
+    const rows = [
+      { prefix:'s', arr:tpStart, rowId:'tp-row-0', active:tpRow===0 },
+      { prefix:'e', arr:tpEnd,   rowId:'tp-row-1', active:tpRow===1 },
+    ];
+    rows.forEach(({ prefix, arr, rowId, active }) => {
+      for (let i = 0; i < 4; i++) {
+        const el = document.getElementById(`tp-${prefix}${i}`);
+        if (!el) return;
+        el.textContent = arr[i] || '—';
+        el.className = 'tp-digit cursor-pointer' + (active && i===tpCursor ? ' active' : '');
+      }
+      const rowEl = document.getElementById(rowId);
+      if (rowEl) {
+        const label = rowEl.querySelector('.tp-row-label');
+        if (label) label.style.color = active ? '#dc2626' : '';
+      }
+    });
+  }
+
+  function confirmTimePicker() {
+    if (tpAmPm === '終日') {
+      document.getElementById('ev-time').value = '終日';
+      updateEvTimeBtn(); closeTimePicker(); return;
+    }
+    const fmt = arr => {
+      if (arr.every(d => d === '')) return null;
+      if (arr.some(d => d === '')) return 'INCOMPLETE';
+      const h = arr[0]+arr[1], m = arr[2]+arr[3];
+      if (parseInt(h)>23 || parseInt(m)>59) return 'INVALID';
+      return `${h}:${m}`;
+    };
+    const s = fmt(tpStart), e = fmt(tpEnd);
+    if (s==='INVALID' || e==='INVALID') { alert('正しい時間を入力してください（例：09:00）'); return; }
+    if (s==='INCOMPLETE' || e==='INCOMPLETE') { alert('時間が未完成です。入力を確認してください。'); return; }
+    let time = '';
+    if (s && e) time = `${s}〜${e}`;
+    else if (s) time = `${s}〜`;
+    else if (e) time = `〜${e}`;
+    const prefix = tpAmPm ? `${tpAmPm} ` : '';
+    document.getElementById('ev-time').value = prefix + time;
+    updateEvTimeBtn();
+    closeTimePicker();
+  }
+
+  // ─── .ics ダウンロード ───────────────────────────────────────────────
+  function downloadICS() {
+    const ev = currentDetailEvent;
+    if (!ev) return;
+    const dt = ev.event_date.replace(/-/g, '');
+    const dtNext = (() => {
+      const d = new Date(ev.event_date + 'T00:00:00');
+      d.setDate(d.getDate() + 1);
+      return d.toISOString().slice(0, 10).replace(/-/g, '');
+    })();
+    const desc = [ev.event_time, ev.transport, ev.memo].filter(Boolean).join('\\n');
+    const ics = [
+      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//SoccerCalendar//JA',
+      'BEGIN:VEVENT',
+      `UID:${ev.id}@soccer-calendar`,
+      `DTSTART;VALUE=DATE:${dt}`,
+      `DTEND;VALUE=DATE:${dtNext}`,
+      `SUMMARY:${ev.title}`,
+      ev.location ? `LOCATION:${ev.location}` : '',
+      desc        ? `DESCRIPTION:${desc}` : '',
+      'END:VEVENT', 'END:VCALENDAR'
+    ].filter(l => l !== '').join('\r\n');
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${ev.title}.ics`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ─── イベント作成／編集 ──────────────────────────────────────────────
+  function openEventModal(id = null) {
+    document.getElementById('event-modal-title').textContent = id ? '📅 イベントを編集' : '📅 イベントを追加';
+    document.getElementById('edit-event-id').value = id || '';
+    if (id) {
+      const ev = events.find(e => e.id === id);
+      if (ev) {
+        document.getElementById('ev-title').value     = ev.title || '';
+        document.getElementById('ev-date').value      = ev.event_date || '';
+        document.getElementById('ev-time').value      = ev.event_time || '';
+        document.getElementById('ev-category').value  = ev.category || '';
+        document.getElementById('ev-location').value  = ev.location || '';
+        document.getElementById('ev-transport').value = ev.transport || '';
+        document.getElementById('ev-memo').value      = ev.memo || '';
+      }
+    } else {
+      ['ev-title','ev-location','ev-transport','ev-memo'].forEach(fid => { document.getElementById(fid).value = ''; });
+      document.getElementById('ev-time').value     = '';
+      document.getElementById('ev-date').value     = '';
+      document.getElementById('ev-category').value = '';
+    }
+    updateEvTimeBtn();
+    document.getElementById('event-modal-status').classList.add('hidden');
+    document.getElementById('create-event-modal').classList.remove('hidden');
+  }
+  function closeEventModal() {
+    document.getElementById('create-event-modal').classList.add('hidden');
+  }
+
+  async function saveEvent() {
+    const btn    = document.getElementById('event-save-btn');
+    const txt    = document.getElementById('event-save-text');
+    const load   = document.getElementById('event-save-loading');
+    const status = document.getElementById('event-modal-status');
+    const editId = document.getElementById('edit-event-id').value;
+    const title  = document.getElementById('ev-title').value.trim();
+    const date   = document.getElementById('ev-date').value;
+    if (!title) { setStatus(status, 'タイトルを入力してください', 'error'); return; }
+    if (!date)  { setStatus(status, '日付を入力してください', 'error'); return; }
+
+    btn.disabled = true; txt.classList.add('hidden'); load.classList.remove('hidden');
+    try {
+      const payload = {
+        title, event_date: date,
+        event_time: document.getElementById('ev-time').value.trim()      || null,
+        category:   document.getElementById('ev-category').value          || null,
+        location:   document.getElementById('ev-location').value.trim()   || null,
+        transport:  document.getElementById('ev-transport').value.trim()  || null,
+        memo:       document.getElementById('ev-memo').value.trim()       || null,
+      };
+      const { error } = editId
+        ? await supabaseClient.from(TABLE_EVENTS).update(payload).eq('id', editId)
+        : await supabaseClient.from(TABLE_EVENTS).insert(payload);
+      if (error) { setStatus(status, '保存に失敗しました: ' + error.message, 'error'); return; }
+      closeEventModal();
+      loadEvents();
+    } catch(e) {
+      setStatus(status, 'エラーが発生しました', 'error');
+    } finally {
+      btn.disabled = false; txt.classList.remove('hidden'); load.classList.add('hidden');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const saveBtn = document.getElementById('event-save-btn');
+    if (saveBtn) saveBtn.addEventListener('click', saveEvent);
+  });
+
+  // ─── ユーティリティ ──────────────────────────────────────────────────
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function setStatus(el, msg, type) {
+    if (!el) return;
+    const cls = {
+      error:   'bg-red-50 border border-red-200 text-red-700',
+      success: 'bg-green-50 border border-green-200 text-green-700',
+      info:    'bg-blue-50 border border-blue-200 text-blue-700',
+    };
+    el.textContent = msg;
+    el.className = `text-sm rounded-xl px-4 py-3 font-medium ${cls[type] || cls.info}`;
+    el.classList.remove('hidden');
+  }
+
+  // ─── Enterキー対応 ───────────────────────────────────────────────────
+  document.addEventListener('keypress', e => {
+    if (e.key === 'Enter' && !document.getElementById('login-modal').classList.contains('hidden')) {
+      handleLogin();
+    }
+  });
+
+  // ─── 起動 ────────────────────────────────────────────────────────────
+  (async () => {
+    try {
+      const params       = new URLSearchParams(location.search);
+      const isParentMode = params.get('view') === 'parent';
+
+      // ハッシュから接続設定を読み込み（コーチリンク / ファミリーリンク経由）
+      if (location.hash) {
+        try {
+          const d = parseHashConfig();
+          if (d?.u && d?.k) {
+            const existing = loadConfig() || {};
+            saveConfig({ ...existing, supabase_url: d.u, supabase_anon_key: d.k,
+              team_name: d.t || existing.team_name || '',
+              primary_color: d.c || existing.primary_color || '#c0392b' });
+            // コーチモードをセッションに記憶してからハッシュを除去
+            if (!isFamilyMode) {
+              try { sessionStorage.setItem('mrs_cal_coach', '1'); } catch(e) {}
+            }
+            history.replaceState(null, '', location.pathname + location.search);
+          }
+        } catch(e) {}
+      }
+
+      // カテゴリーフィルターを復元
+      selectedCategory = loadFilter();
+      // ビューモードを復元
+      const _savedView = (() => { try { return localStorage.getItem(STORAGE_VIEW_KEY) || 'month'; } catch(e) { return 'month'; } })();
+      if (_savedView !== 'month') {
+        viewMode = _savedView;
+        document.getElementById('view-month').classList.add('hidden');
+        document.getElementById('view-list').classList.remove('hidden');
+        document.getElementById('btn-month').className = `flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap text-gray-500 hover:text-gray-700`;
+        document.getElementById('btn-list').className  = `flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap bg-red-500 text-white`;
+      }
+
+      if (!initSupabase()) {
+        document.getElementById('loading-screen').classList.add('hidden');
+        openSetupModal();
+        return;
+      }
+
+      // 個別回答リンク（?respond=eventId）：ファミリーモードと同じ権限で回答フォームを直接表示
+      const respondEventId = params.get('respond');
+      if (respondEventId) {
+        setAdminMode(false);
+        applyModeRestrictions();
+        await loadEvents();
+        document.getElementById('loading-screen').classList.add('hidden');
+        const targetEv = events.find(e => String(e.id) === String(respondEventId));
+        if (targetEv) {
+          currentDetailEvent = targetEv;
+          openParentRespond();
+        }
+        return;
+      }
+
+      // ファミリーモード（?view=parent）：ログイン不要・保護者UIで表示
+      if (isParentMode) {
+        setAdminMode(false);
+        applyModeRestrictions();
+        await loadEvents();
+        return;
+      }
+
+      // コーチモード（ハッシュあり or セッション継続）：ログイン不要・管理者UIで表示
+      if (isCoachMode) {
+        setAdminMode(true);
+        applyModeRestrictions();
+        await loadEvents();
+        return;
+      }
+
+      // セットアップモード：Supabase 認証チェック
+      let session = null;
+      try {
+        const result = await Promise.race([
+          supabaseClient.auth.getSession(),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000))
+        ]);
+        session = result?.data?.session ?? null;
+      } catch(e) {}
+
+      setAdminMode(!!session);
+      applyModeRestrictions();
+      await loadEvents();
+    } catch(e) {
+      console.error('起動エラー:', e);
+    } finally {
+      document.getElementById('loading-screen').classList.add('hidden');
+    }
+  })();
+</script>
+
+</body>
+</html>
