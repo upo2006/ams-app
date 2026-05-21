@@ -2497,12 +2497,6 @@
     if (saveBtn) saveBtn.addEventListener('click', saveEvent);
   });
 
-  // セットアップガイドからのリンク（?setup=1）で接続設定を自動表示
-  document.addEventListener('DOMContentLoaded', () => {
-    if (new URLSearchParams(window.location.search).get('setup') === '1') {
-      setTimeout(openSetupModal, 400);
-    }
-  });
 
   // ─── ユーティリティ ──────────────────────────────────────────────────
   function escHtml(s) {
@@ -2561,6 +2555,14 @@
         document.getElementById('view-list').classList.remove('hidden');
         document.getElementById('btn-month').className = `flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap text-gray-500 hover:text-gray-700`;
         document.getElementById('btn-list').className  = `flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap bg-red-500 text-white`;
+      }
+
+      // セットアップガイドからのリンク（?setup=1）：既存データを表示せずに接続設定を開く
+      if (params.get('setup') === '1') {
+        document.getElementById('loading-screen').classList.add('hidden');
+        setAdminMode(false);
+        openSetupModal();
+        return;
       }
 
       if (!initSupabase()) {
