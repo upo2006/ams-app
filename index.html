@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>カレンダー</title>
+  <title>AMS</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -97,9 +97,9 @@
       <div class="flex items-center gap-3">
         <span class="text-3xl shrink-0">📅</span>
         <div class="flex-1 min-w-0" style="min-width:0;overflow:hidden">
-          <h1 id="app-team-name" class="font-black leading-tight" style="font-size:min(1.25rem,4.5vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">カレンダー</h1>
+          <h1 id="app-team-name" class="font-black leading-tight" style="font-size:min(1.25rem,4.5vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">AMS</h1>
           <div class="flex items-center gap-2 mt-0.5">
-            <p class="text-xs text-white/80" style="letter-spacing:0.12em">CALENDAR</p>
+            <p class="text-xs text-white/80" style="letter-spacing:0.12em">ATTENDANCE MANAGEMENT SYSTEM</p>
             <span id="mode-badge" class="text-[0.6rem] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider"></span>
           </div>
         </div>
@@ -204,7 +204,7 @@
   <footer class="mt-2 pb-4">
     <div class="max-w-[750px] mx-auto px-4">
       <div class="py-6 text-center bg-gradient-to-r from-red-700 to-red-600 text-white rounded-xl shadow-lg">
-        <p id="footer-text" class="text-xs text-white/90 mt-1">© CALENDAR</p>
+        <p id="footer-text" class="text-xs text-white/90 mt-1">© AMS</p>
       </div>
     </div>
   </footer>
@@ -329,7 +329,7 @@
       </div>
       <div>
         <label class="block text-gray-700 text-sm font-bold mb-1">フッターテキスト</label>
-        <input type="text" id="setup-footer-text" placeholder="入力なし → © CALENDAR"
+        <input type="text" id="setup-footer-text" placeholder="入力なし → © AMS"
           class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
         <p class="text-xs text-gray-500 mt-1.5">
           💡 例：<span class="font-medium">© ○○FC Since 2018</span><br>
@@ -951,10 +951,10 @@
     if (!cfg) return;
     if (cfg.team_name) {
       document.getElementById('app-team-name').textContent = cfg.team_name;
-      document.title = cfg.team_name + ' カレンダー';
+      document.title = cfg.team_name + ' AMS';
     }
     const footerEl = document.getElementById('footer-text');
-    if (footerEl) footerEl.textContent = cfg.footer_text || '© CALENDAR';
+    if (footerEl) footerEl.textContent = cfg.footer_text || '© AMS';
     if (cfg.primary_color) applyColor(cfg.primary_color);
   }
 
@@ -1040,7 +1040,7 @@
     btn.disabled = false; txt.classList.remove('hidden'); load.classList.add('hidden');
     if (!testOk) return;
 
-    const newCfg = { team_name: teamName, supabase_url: url.replace(/\/$/, ''), supabase_anon_key: key, primary_color: color, footer_text: footer || '© CALENDAR' };
+    const newCfg = { team_name: teamName, supabase_url: url.replace(/\/$/, ''), supabase_anon_key: key, primary_color: color, footer_text: footer || '© AMS' };
 
     if (calSetupMode === 'new') {
       const teams = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
@@ -1239,14 +1239,14 @@
     document.getElementById('menu-parent-link-btn')?.classList.toggle('hidden', !admin && isSetupMode);
     // セットアップ未ログイン時はチーム名・イベントデータを非表示
     if (!admin && isSetupMode) {
-      document.getElementById('app-team-name').textContent = 'カレンダー';
-      document.title = 'カレンダー';
+      document.getElementById('app-team-name').textContent = 'AMS';
+      document.title = 'AMS';
       events = [];
     } else if (admin) {
       const cfg = loadConfig();
       if (cfg && cfg.team_name) {
         document.getElementById('app-team-name').textContent = cfg.team_name;
-        document.title = cfg.team_name + ' カレンダー';
+        document.title = cfg.team_name + ' AMS';
       }
     }
     document.getElementById('menu-player-btn')?.classList.toggle('hidden', !admin);
