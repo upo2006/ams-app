@@ -2497,6 +2497,13 @@
     if (saveBtn) saveBtn.addEventListener('click', saveEvent);
   });
 
+  // セットアップガイドからのリンク（?setup=1）で接続設定を自動表示
+  document.addEventListener('DOMContentLoaded', () => {
+    if (new URLSearchParams(window.location.search).get('setup') === '1') {
+      setTimeout(openSetupModal, 400);
+    }
+  });
+
   // ─── ユーティリティ ──────────────────────────────────────────────────
   function escHtml(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
