@@ -1275,7 +1275,7 @@
       }
       // ─── 通常ログイン ──────────────────────────────────────────────────
       const { error } = await Promise.race([
-        supabaseClient.auth.signInWithPassword({ email, password }),
+        getAmsAuthClient().auth.signInWithPassword({ email, password }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 30000))
       ]);
       if (error) { setStatus(status, 'メールアドレスまたはパスワードが違います', 'error'); return; }
@@ -1289,7 +1289,7 @@
         ]);
       } catch(e) { subOk = true; } // タイムアウトは許可
       if (!subOk) {
-        await supabaseClient.auth.signOut().catch(() => {});
+        await getAmsAuthClient().auth.signOut().catch(() => {});
         setStatus(status, '有効なサブスクリプションが見つかりません', 'error');
         return;
       }
@@ -1305,7 +1305,7 @@
 
   async function handleLogout() {
     document.getElementById('settings-menu')?.classList.add('hidden');
-    try { await Promise.race([supabaseClient.auth.signOut(), new Promise(r => setTimeout(r, 3000))]); } catch(e) {}
+    try { await Promise.race([getAmsAuthClient().auth.signOut(), new Promise(r => setTimeout(r, 3000))]); } catch(e) {}
     setAdminMode(false);
   }
 
@@ -2688,15 +2688,27 @@
         return;
       }
 
-      // セットアップモード：Supabase 認証チェック
+      // セットアップモード：Supabase 認証チェック（サブスク用クライアントでセッション確認）
       let session = null;
       try {
         const result = await Promise.race([
-          supabaseClient.auth.getSession(),
+          getAmsAuthClient().auth.getSession(),
           new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000))
         ]);
         session = result?.data?.session ?? null;
       } catch(e) {}
+
+      // セッションあり → サブスクリプション確認（キャッシュ1時間）
+      if (session) {
+        let subOk = false;
+        try {
+          subOk = await Promise.race([
+            checkAmsSubscription(session.user.email),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000))
+          ]);
+        } catch(e) { subOk = true; }
+        if (!subOk) session = null;
+      }
 
       setAdminMode(!!session);
       applyModeRestrictions();
