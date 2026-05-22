@@ -1608,10 +1608,8 @@
     if (ev.memo) { memoEl.textContent = '📝 ' + ev.memo; memoEl.classList.remove('hidden'); }
     else memoEl.classList.add('hidden');
 
-    // 管理者ボタン表示（編集・削除は管理者のみ）
+    // 管理者ボタン表示
     document.getElementById('detail-admin-btns').classList.toggle('hidden', !isAdmin);
-    // リンクコピー・回答確認は管理者 or ファミリーモードで表示（セットアップと同じ動作）
-    document.getElementById('detail-admin-links').classList.toggle('hidden', !isAdmin && !isFamilyMode);
 
     // 回答件数（イベントデータに含まれているので即時表示）
     const respCount = ev[TABLE_RESPONSES]?.[0]?.count ?? 0;
@@ -1646,6 +1644,7 @@
     const ev = currentDetailEvent;
     if (!ev) return;
     if (!supabaseClient) { alert('接続設定が見つかりません'); return; }
+    closeDetailModal();
 
     // ヘッダー情報（showParentResultsと同じ形式）
     const _catTitle = ev.category ? `${escHtml(ev.category)} / ${escHtml(ev.title)}` : escHtml(ev.title);
@@ -1833,6 +1832,7 @@
   async function showParentResults() {
     const ev = currentDetailEvent;
     if (!ev || !supabaseClient) return;
+    closeDetailModal();
 
     // attendance.html の showParentResults と同じ構成
     const { data: responses, error } = await supabaseClient
