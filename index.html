@@ -403,7 +403,7 @@
   <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeEventModal()"></div>
   <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" style="max-height:calc(100vh - 2rem)">
     <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-5 py-3 rounded-t-2xl flex items-center justify-between shrink-0">
-      <h2 id="event-modal-title" class="text-lg font-black">📅 イベントを追加</h2>
+      <h2 id="event-modal-title" class="text-lg font-black">📅 イベント作成</h2>
       <button onclick="closeEventModal()" class="text-white/70 hover:text-white text-2xl leading-none">×</button>
     </div>
     <div class="overflow-y-auto flex-1 px-4 py-3 space-y-2.5">
@@ -443,6 +443,16 @@
       <div>
         <label class="block text-gray-700 text-xs font-bold mb-1">場所</label>
         <input type="text" id="ev-location" placeholder="例：伊丹市立桜台小学校"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+      </div>
+      <div>
+        <label class="block text-gray-700 text-xs font-bold mb-1">集合時間</label>
+        <input type="text" id="ev-meetup" placeholder="例：9:00集合"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+      </div>
+      <div>
+        <label class="block text-gray-700 text-xs font-bold mb-1">ユニフォーム</label>
+        <input type="text" id="ev-uniform" placeholder="例：赤ユニフォーム"
           class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
       </div>
       <div>
@@ -995,7 +1005,7 @@
     if (!cfg) return;
     if (cfg.team_name) {
       document.getElementById('app-team-name').textContent = cfg.team_name;
-      document.title = cfg.team_name + ' AMS';
+      document.title = cfg.team_name + ' | ATTENDANCE MANAGEMENT SYSTEM';
     }
     const footerEl = document.getElementById('footer-text');
     if (footerEl) footerEl.textContent = cfg.footer_text || '© ATTENDANCE MANAGEMENT SYSTEM';
@@ -1331,14 +1341,14 @@
     document.getElementById('menu-parent-link-btn')?.classList.toggle('hidden', !admin && isSetupMode);
     // セットアップ未ログイン時はチーム名・イベントデータを非表示
     if (!admin && isSetupMode) {
-      document.getElementById('app-team-name').textContent = 'AMS';
-      document.title = 'AMS';
+      document.getElementById('app-team-name').textContent = 'ATTENDANCE MANAGEMENT SYSTEM';
+      document.title = 'ATTENDANCE MANAGEMENT SYSTEM';
       events = [];
     } else if (admin) {
       const cfg = loadConfig();
       if (cfg && cfg.team_name) {
         document.getElementById('app-team-name').textContent = cfg.team_name;
-        document.title = cfg.team_name + ' AMS';
+        document.title = cfg.team_name + ' | ATTENDANCE MANAGEMENT SYSTEM';
       }
     }
     document.getElementById('menu-player-btn')?.classList.toggle('hidden', !admin);
@@ -1570,6 +1580,8 @@
             <div>📅 ${dateLabel}</div>
             <div>${ev.location   ? `📍 ${escHtml(ev.location)}`   : ''}</div>
             <div>${ev.event_time ? `🕐 ${escHtml(ev.event_time)}` : ''}</div>
+            <div>${ev.meetup     ? `🏃 ${escHtml(ev.meetup)}`     : ''}</div>
+            <div>${ev.uniform    ? `👕 ${escHtml(ev.uniform)}`    : ''}</div>
             <div>${ev.transport  ? `🚗 ${escHtml(ev.transport)}`  : ''}</div>
           </div>
         </div>
@@ -1604,6 +1616,8 @@
       `📅 ${dateLabel}`,
       ev.location   ? `📍 ${escHtml(ev.location)}`   : '',
       ev.event_time ? `🕐 ${escHtml(ev.event_time)}` : '',
+      ev.meetup     ? `🏃 ${escHtml(ev.meetup)}`     : '',
+      ev.uniform    ? `👕 ${escHtml(ev.uniform)}`    : '',
       ev.transport  ? `🚗 ${escHtml(ev.transport)}`  : '',
     ].map(s => `<div>${s}</div>`).join('');
     document.getElementById('detail-info').innerHTML = `<div style="display:inline-grid;grid-template-columns:auto auto;gap:2px 12px">${_gi}</div>`;
@@ -1654,9 +1668,9 @@
     const _catTitle = ev.category ? `${escHtml(ev.category)} / ${escHtml(ev.title)}` : escHtml(ev.title);
     const _dateShort = ev.event_date
       ? new Date(ev.event_date + 'T00:00:00').toLocaleDateString('ja-JP', { month:'long', day:'numeric', weekday:'short' }) : '';
-    const _col1 = [_dateShort ? `📆 ${_dateShort}` : '', ev.event_time ? `🕐 ${escHtml(ev.event_time)}` : ''];
-    const _col2 = [ev.location ? `📍 ${escHtml(ev.location)}` : '', ev.transport ? `🚗 ${escHtml(ev.transport)}` : ''];
-    const _gridItems = [_col1[0], _col2[0], _col1[1], _col2[1]].map(s => `<div>${s}</div>`).join('');
+    const _col1 = [_dateShort ? `📆 ${_dateShort}` : '', ev.event_time ? `🕐 ${escHtml(ev.event_time)}` : '', ev.meetup ? `🏃 ${escHtml(ev.meetup)}` : ''];
+    const _col2 = [ev.location ? `📍 ${escHtml(ev.location)}` : '', ev.transport ? `🚗 ${escHtml(ev.transport)}` : '', ev.uniform ? `👕 ${escHtml(ev.uniform)}` : ''];
+    const _gridItems = [_col1[0], _col2[0], _col1[1], _col2[1], _col1[2], _col2[2]].map(s => `<div>${s}</div>`).join('');
 
     const cId = 'cal-respond-popup-container';
     let modal = document.getElementById('cal-respond-popup-modal');
@@ -1842,9 +1856,9 @@
     const _catTitle = ev.category ? `${escHtml(ev.category)} / ${escHtml(ev.title)}` : escHtml(ev.title);
     const _dateShort = ev.event_date
       ? new Date(ev.event_date + 'T00:00:00').toLocaleDateString('ja-JP', { month:'long', day:'numeric', weekday:'short' }) : '';
-    const _col1 = [_dateShort ? `📆 ${_dateShort}` : '', ev.event_time ? `🕐 ${escHtml(ev.event_time)}` : ''];
-    const _col2 = [ev.location ? `📍 ${escHtml(ev.location)}` : '', ev.transport ? `🚗 ${escHtml(ev.transport)}` : ''];
-    const _gridItems = [_col1[0], _col2[0], _col1[1], _col2[1]].map(s => `<div>${s}</div>`).join('');
+    const _col1 = [_dateShort ? `📆 ${_dateShort}` : '', ev.event_time ? `🕐 ${escHtml(ev.event_time)}` : '', ev.meetup ? `🏃 ${escHtml(ev.meetup)}` : ''];
+    const _col2 = [ev.location ? `📍 ${escHtml(ev.location)}` : '', ev.transport ? `🚗 ${escHtml(ev.transport)}` : '', ev.uniform ? `👕 ${escHtml(ev.uniform)}` : ''];
+    const _gridItems = [_col1[0], _col2[0], _col1[1], _col2[1], _col1[2], _col2[2]].map(s => `<div>${s}</div>`).join('');
 
     // モーダルをすぐ表示（ローディング状態）
     let modal = document.getElementById('parent-result-modal');
@@ -2538,7 +2552,7 @@
 
   // ─── イベント作成／編集 ──────────────────────────────────────────────
   function openEventModal(id = null) {
-    document.getElementById('event-modal-title').textContent = id ? '📅 イベントを編集' : '📅 イベントを追加';
+    document.getElementById('event-modal-title').textContent = id ? '📅 イベントを編集' : '📅 イベント作成';
     document.getElementById('edit-event-id').value = id || '';
     if (id) {
       const ev = events.find(e => e.id === id);
@@ -2548,11 +2562,13 @@
         document.getElementById('ev-time').value      = ev.event_time || '';
         document.getElementById('ev-category').value  = ev.category || '';
         document.getElementById('ev-location').value  = ev.location || '';
+        document.getElementById('ev-meetup').value    = ev.meetup || '';
+        document.getElementById('ev-uniform').value   = ev.uniform || '';
         document.getElementById('ev-transport').value = ev.transport || '';
         document.getElementById('ev-memo').value      = ev.memo || '';
       }
     } else {
-      ['ev-title','ev-location','ev-transport','ev-memo'].forEach(fid => { document.getElementById(fid).value = ''; });
+      ['ev-title','ev-location','ev-meetup','ev-uniform','ev-transport','ev-memo'].forEach(fid => { document.getElementById(fid).value = ''; });
       document.getElementById('ev-time').value     = '';
       document.getElementById('ev-date').value     = '';
       document.getElementById('ev-category').value = '';
@@ -2583,6 +2599,8 @@
         event_time: document.getElementById('ev-time').value.trim()      || null,
         category:   document.getElementById('ev-category').value          || null,
         location:   document.getElementById('ev-location').value.trim()   || null,
+        meetup:     document.getElementById('ev-meetup').value.trim()     || null,
+        uniform:    document.getElementById('ev-uniform').value.trim()    || null,
         transport:  document.getElementById('ev-transport').value.trim()  || null,
         memo:       document.getElementById('ev-memo').value.trim()       || null,
       };
