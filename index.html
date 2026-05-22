@@ -1072,6 +1072,7 @@
   function fitTeamName() {
     const el = document.getElementById('app-team-name');
     if (!el) return;
+    if (window.innerWidth < 640) { el.style.fontSize = ''; return; }
     const container = el.parentElement;
     if (!container) return;
     requestAnimationFrame(() => {
@@ -1084,7 +1085,7 @@
       const w100 = tmp.getBoundingClientRect().width;
       document.body.removeChild(tmp);
       if (!w100) return;
-      const fs = Math.min(100, Math.max(14, Math.floor(maxW / w100 * 100 * 0.95)));
+      const fs = Math.min(100, Math.max(14, Math.floor(maxW / w100 * 100 * 0.7)));
       el.style.fontSize = fs + 'px';
     });
   }
