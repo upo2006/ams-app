@@ -1111,6 +1111,10 @@
       if (isFromSetupGuide) {
         setAdminMode(true);
         isFromSetupGuide = false; // フラグをリセット
+        // ?setup=1 が残っていたら URL を正規化（リロード時の再ログイン防止）
+        if (window.location.search.includes('setup=1')) {
+          history.replaceState(null, '', location.pathname);
+        }
       }
       await loadEvents();
     }, 800);
@@ -2641,14 +2645,26 @@
         document.getElementById('btn-list').className  = `flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap bg-red-500 text-white`;
       }
 
-      // セットアップガイドからのリンク（?setup=1）：ログイン画面 → 接続設定（MRSと同じ動作）
+      // セットアップガイドからのリンク（?setup=1）：既存セッションがなければログイン画面を表示
       isFromSetupGuide = params.get('setup') === '1';
       if (isFromSetupGuide) {
-        document.getElementById('loading-screen').classList.add('hidden');
-        setAdminMode(false);
-        applyModeRestrictions();
-        openLoginModal();
-        return;
+        // セッションが残っていればそのまま接続設定へ進む
+        let existingSession = null;
+        try {
+          const r = await Promise.race([
+            getAmsAuthClient().auth.getSession(),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000))
+          ]);
+          existingSession = r?.data?.session ?? null;
+        } catch(e) {}
+        if (!existingSession) {
+          document.getElementById('loading-screen').classList.add('hidden');
+          setAdminMode(false);
+          applyModeRestrictions();
+          openLoginModal();
+          return;
+        }
+        // セッションあり → そのまま通常フローへ（接続設定が開く）
       }
 
       if (!initSupabase()) {
