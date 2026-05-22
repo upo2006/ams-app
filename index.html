@@ -99,19 +99,21 @@
   <header class="p-4">
     <div class="max-w-[750px] mx-auto bg-gradient-to-r from-red-700 to-red-600 text-white px-4 py-3 shadow-lg rounded-2xl">
       <div class="flex items-center gap-3">
-        <span class="text-3xl shrink-0">📅</span>
+        <div class="flex flex-col items-center shrink-0 gap-0.5">
+          <span class="text-2xl">📅</span>
+          <span id="mode-badge" class="text-[0.6rem] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider"></span>
+        </div>
         <div class="flex-1 min-w-0" style="min-width:0;overflow:hidden">
           <h1 id="app-team-name" class="font-black leading-tight" style="font-size:min(1.4rem,4.5vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">AMS</h1>
-          <div class="flex items-start justify-between gap-2 mt-0.5">
+          <div class="flex items-start mt-0.5">
             <p class="text-xs text-white/80" style="letter-spacing:0.12em">
               <span class="hidden sm:inline">ATTENDANCE MANAGEMENT SYSTEM</span>
               <span class="sm:hidden">ATTENDANCE<br>MANAGEMENT<br>SYSTEM</span>
             </p>
-            <span id="mode-badge" class="text-[0.6rem] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider shrink-0"></span>
           </div>
         </div>
         <div class="relative shrink-0">
-          <button id="settings-btn" type="button" class="hidden bg-white/15 hover:bg-white/25 text-white text-lg rounded-lg px-3 py-2 transition-colors">⚙️</button>
+          <button id="settings-btn" type="button" class="hidden bg-white/15 hover:bg-white/25 text-white text-sm rounded-lg px-2 py-1.5 transition-colors">⚙️</button>
           <div id="settings-menu" class="hidden absolute right-0 top-full mt-2 w-52 bg-white text-gray-800 rounded-xl shadow-xl border border-gray-200 overflow-hidden z-40">
             <button type="button" id="menu-login-btn" onclick="openLoginModal()" class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors font-bold">🔑 ログイン</button>
             <button type="button" id="open-setup-menu-btn" class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 font-bold">⚙️ 接続設定</button>
