@@ -1420,7 +1420,16 @@
   function setAdminMode(admin) {
     isAdmin = admin;
     // 設定ボタン：管理者 or セットアップモードは表示（ログインボタンにアクセスするため）
-    document.getElementById('settings-btn')?.classList.toggle('hidden', !admin && !isSetupMode);
+    const settingsBtn = document.getElementById('settings-btn');
+    if (settingsBtn) {
+      if (isFamilyMode) {
+        settingsBtn.classList.remove('hidden');
+        settingsBtn.classList.add('invisible', 'pointer-events-none');
+      } else {
+        settingsBtn.classList.toggle('hidden', !admin && !isSetupMode);
+        settingsBtn.classList.remove('invisible', 'pointer-events-none');
+      }
+    }
     // 新規追加ボタン：管理者のみ
     document.getElementById('add-event-btn')?.classList.toggle('hidden', !admin);
     // 設定メニュー内ボタン
