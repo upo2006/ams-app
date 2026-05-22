@@ -1625,11 +1625,11 @@
           <p class="text-sm leading-snug mb-1">${catTitle}${countBadge}</p>
           <div class="text-xs text-gray-500" style="display:inline-grid;grid-template-columns:auto auto;gap:2px 12px">
             <div>📅 ${dateLabel}</div>
-            <div>${ev.location   ? `📍 ${escHtml(ev.location)}`   : ''}</div>
-            <div>${ev.event_time ? `🕐 ${escHtml(ev.event_time)}` : ''}</div>
-            <div>${ev.meetup     ? `🏃 ${escHtml(ev.meetup)}`     : ''}</div>
-            <div>${ev.uniform    ? `👕 ${escHtml(ev.uniform)}`    : ''}</div>
-            <div>${ev.transport  ? `🚗 ${escHtml(ev.transport)}`  : ''}</div>
+            <div>📍 ${ev.location   ? escHtml(ev.location)   : ''}</div>
+            <div>🕐 ${ev.event_time ? escHtml(ev.event_time) : ''}</div>
+            <div>🚗 ${ev.transport  ? escHtml(ev.transport)  : ''}</div>
+            <div>🏃 ${ev.meetup     ? escHtml(ev.meetup)     : ''}</div>
+            <div>👕 ${ev.uniform    ? escHtml(ev.uniform)    : ''}</div>
           </div>
         </div>
       </div>`;
@@ -1661,11 +1661,11 @@
     const dateLabel = d.toLocaleDateString('ja-JP', { month:'long', day:'numeric', weekday:'short' });
     const _gi = [
       `📅 ${dateLabel}`,
-      ev.location   ? `📍 ${escHtml(ev.location)}`   : '',
-      ev.event_time ? `🕐 ${escHtml(ev.event_time)}` : '',
-      ev.meetup     ? `🏃 ${escHtml(ev.meetup)}`     : '',
-      ev.uniform    ? `👕 ${escHtml(ev.uniform)}`    : '',
-      ev.transport  ? `🚗 ${escHtml(ev.transport)}`  : '',
+      `📍 ${ev.location   ? escHtml(ev.location)   : ''}`,
+      `🕐 ${ev.event_time ? escHtml(ev.event_time) : ''}`,
+      `🚗 ${ev.transport  ? escHtml(ev.transport)  : ''}`,
+      `🏃 ${ev.meetup     ? escHtml(ev.meetup)     : ''}`,
+      `👕 ${ev.uniform    ? escHtml(ev.uniform)    : ''}`,
     ].map(s => `<div>${s}</div>`).join('');
     document.getElementById('detail-info').innerHTML = `<div style="display:inline-grid;grid-template-columns:auto auto;gap:2px 12px">${_gi}</div>`;
 
@@ -1715,8 +1715,8 @@
     const _catTitle = ev.category ? `${escHtml(ev.category)} / ${escHtml(ev.title)}` : escHtml(ev.title);
     const _dateShort = ev.event_date
       ? new Date(ev.event_date + 'T00:00:00').toLocaleDateString('ja-JP', { month:'long', day:'numeric', weekday:'short' }) : '';
-    const _col1 = [_dateShort ? `📆 ${_dateShort}` : '', ev.event_time ? `🕐 ${escHtml(ev.event_time)}` : '', ev.meetup ? `🏃 ${escHtml(ev.meetup)}` : ''];
-    const _col2 = [ev.location ? `📍 ${escHtml(ev.location)}` : '', ev.transport ? `🚗 ${escHtml(ev.transport)}` : '', ev.uniform ? `👕 ${escHtml(ev.uniform)}` : ''];
+    const _col1 = [`📆 ${_dateShort}`, `🕐 ${ev.event_time ? escHtml(ev.event_time) : ''}`, `🏃 ${ev.meetup ? escHtml(ev.meetup) : ''}`];
+    const _col2 = [`📍 ${ev.location ? escHtml(ev.location) : ''}`, `🚗 ${ev.transport ? escHtml(ev.transport) : ''}`, `👕 ${ev.uniform ? escHtml(ev.uniform) : ''}`];
     const _gridItems = [_col1[0], _col2[0], _col1[1], _col2[1], _col1[2], _col2[2]].map(s => `<div>${s}</div>`).join('');
 
     const cId = 'cal-respond-popup-container';
@@ -1903,8 +1903,8 @@
     const _catTitle = ev.category ? `${escHtml(ev.category)} / ${escHtml(ev.title)}` : escHtml(ev.title);
     const _dateShort = ev.event_date
       ? new Date(ev.event_date + 'T00:00:00').toLocaleDateString('ja-JP', { month:'long', day:'numeric', weekday:'short' }) : '';
-    const _col1 = [_dateShort ? `📆 ${_dateShort}` : '', ev.event_time ? `🕐 ${escHtml(ev.event_time)}` : '', ev.meetup ? `🏃 ${escHtml(ev.meetup)}` : ''];
-    const _col2 = [ev.location ? `📍 ${escHtml(ev.location)}` : '', ev.transport ? `🚗 ${escHtml(ev.transport)}` : '', ev.uniform ? `👕 ${escHtml(ev.uniform)}` : ''];
+    const _col1 = [`📆 ${_dateShort}`, `🕐 ${ev.event_time ? escHtml(ev.event_time) : ''}`, `🏃 ${ev.meetup ? escHtml(ev.meetup) : ''}`];
+    const _col2 = [`📍 ${ev.location ? escHtml(ev.location) : ''}`, `🚗 ${ev.transport ? escHtml(ev.transport) : ''}`, `👕 ${ev.uniform ? escHtml(ev.uniform) : ''}`];
     const _gridItems = [_col1[0], _col2[0], _col1[1], _col2[1], _col1[2], _col2[2]].map(s => `<div>${s}</div>`).join('');
 
     // モーダルをすぐ表示（ローディング状態）
