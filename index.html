@@ -1442,6 +1442,14 @@
         fitTeamName(); fitSubtitle();
         document.title = cfg.team_name + ' | ATTENDANCE MANAGEMENT SYSTEM';
       }
+    } else {
+      // ファミリーモード
+      const cfg = loadConfig();
+      if (cfg && cfg.team_name) {
+        document.getElementById('app-team-name').textContent = cfg.team_name;
+        fitTeamName(); fitSubtitle();
+        document.title = cfg.team_name + ' | ATTENDANCE MANAGEMENT SYSTEM';
+      }
     }
     document.getElementById('menu-player-btn')?.classList.toggle('hidden', !admin);
     document.getElementById('menu-admin-link-btn')?.classList.toggle('hidden', !admin);
