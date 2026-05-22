@@ -2921,6 +2921,7 @@
         setAdminMode(false);
         applyModeRestrictions();
         await loadEvents();
+        setTimeout(() => { fitTeamName(); fitSubtitle(); }, 50);
         return;
       }
 
