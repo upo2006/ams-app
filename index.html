@@ -1107,6 +1107,11 @@
     setTimeout(async () => {
       document.getElementById('setup-modal').classList.add('hidden');
       events = [];
+      // セットアップガイドから来た場合：サブスク確認済みなので管理者権限を付与
+      if (isFromSetupGuide) {
+        setAdminMode(true);
+        isFromSetupGuide = false; // フラグをリセット
+      }
       await loadEvents();
     }, 800);
   }
