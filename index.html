@@ -1866,20 +1866,21 @@
       </div>`;
     modal.classList.remove('hidden');
 
-    // データ取得（モーダル表示後に非同期で実行）
-    const { data: responses, error } = await supabaseClient
-      .from(TABLE_RESPONSES).select('*').eq('event_id', ev.id).order('jersey_number');
-    if (error) {
+    // 回答・選手名を並列取得
+    const [respResult, playerResult] = await Promise.all([
+      supabaseClient.from(TABLE_RESPONSES).select('*').eq('event_id', ev.id).order('jersey_number'),
+      supabaseClient.from('app_records').select('payload').eq('type', 'player')
+    ]);
+    if (respResult.error) {
       document.getElementById('parent-result-body').innerHTML = '<p class="text-red-500 text-sm">取得に失敗しました</p>';
       return;
     }
+    const responses = respResult.data || [];
 
-    // 選手名マップ取得
+    // 選手名マップ構築
     calPlayersMap = {};
     try {
-      const { data: players } = await supabaseClient
-        .from('app_records').select('payload').eq('type', 'player');
-      if (players) players.forEach(row => {
+      if (playerResult.data) playerResult.data.forEach(row => {
         const p = row.payload || {};
         if (p.number) calPlayersMap[String(p.number).trim()] = p.name || '';
       });
