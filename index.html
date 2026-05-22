@@ -1048,10 +1048,27 @@
     }
   }
 
+  function fitTeamName() {
+    const el = document.getElementById('app-team-name');
+    if (!el) return;
+    el.style.fontSize = '';
+    const container = el.closest('.flex-1') || el.parentElement;
+    if (!container) return;
+    requestAnimationFrame(() => {
+      let fs = parseFloat(window.getComputedStyle(el).fontSize);
+      const minFs = 14;
+      while (el.scrollWidth > container.clientWidth + 2 && fs > minFs) {
+        fs -= 0.5;
+        el.style.fontSize = fs + 'px';
+      }
+    });
+  }
+
   function applyCalConfig(cfg) {
     if (!cfg) return;
     if (cfg.team_name) {
       document.getElementById('app-team-name').textContent = cfg.team_name;
+      fitTeamName();
       document.title = cfg.team_name + ' | ATTENDANCE MANAGEMENT SYSTEM';
     }
     const footerEl = document.getElementById('footer-text');
@@ -1389,12 +1406,14 @@
     // セットアップ未ログイン時はチーム名・イベントデータを非表示
     if (!admin && isSetupMode) {
       document.getElementById('app-team-name').textContent = 'ATTENDANCE MANAGEMENT SYSTEM';
+      fitTeamName();
       document.title = 'ATTENDANCE MANAGEMENT SYSTEM';
       events = [];
     } else if (admin) {
       const cfg = loadConfig();
       if (cfg && cfg.team_name) {
         document.getElementById('app-team-name').textContent = cfg.team_name;
+        fitTeamName();
         document.title = cfg.team_name + ' | ATTENDANCE MANAGEMENT SYSTEM';
       }
     }
@@ -2781,6 +2800,8 @@
       handleLogin();
     }
   });
+
+  window.addEventListener('resize', () => fitTeamName && fitTeamName());
 
   // ─── 起動 ────────────────────────────────────────────────────────────
   (async () => {
