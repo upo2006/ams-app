@@ -752,13 +752,13 @@
 
 <script>
   // ─── 定数 ────────────────────────────────────────────────────────────
-  const STORAGE_CONFIG_KEY = 'mrs_app_config_v1'; // attendance.html と共用
-  const STORAGE_TEAMS_KEY  = 'mrs_teams_v1';       // attendance.html と共用
-  const STORAGE_ACTIVE_KEY = 'mrs_active_team_v1'; // attendance.html と共用
+  const STORAGE_CONFIG_KEY = 'ams_app_config_v1'; // attendance.html と共用
+  const STORAGE_TEAMS_KEY  = 'ams_teams_v1';       // attendance.html と共用
+  const STORAGE_ACTIVE_KEY = 'ams_active_team_v1'; // attendance.html と共用
   const TABLE_EVENTS    = 'attendance_events';
   const TABLE_RESPONSES = 'attendance_responses';
-  const STORAGE_FILTER_KEY = 'mrs_cal_filter_v1';  // カテゴリーフィルター記憶用
-  const STORAGE_VIEW_KEY   = 'mrs_cal_view_v1';    // ビューモード記憶用
+  const STORAGE_FILTER_KEY = 'ams_cal_filter_v1';  // カテゴリーフィルター記憶用
+  const STORAGE_VIEW_KEY   = 'ams_cal_view_v1';    // ビューモード記憶用
 
   // 色を全カテゴリーで明確に区別（紫→青→緑→シアン→黄→赤）
   const CAT_COLORS = {
@@ -828,7 +828,7 @@
   const _urlP        = new URLSearchParams(location.search);
   const isFamilyMode = _urlP.get('view') === 'parent';
   // コーチモード：URLハッシュ または セッション継続中（リロード対応）
-  const _coachSess   = (() => { try { return sessionStorage.getItem('mrs_cal_coach') === '1'; } catch(e) { return false; } })();
+  const _coachSess   = (() => { try { return sessionStorage.getItem('ams_cal_coach') === '1'; } catch(e) { return false; } })();
   const isCoachMode  = !isFamilyMode && (!!location.hash || _coachSess);
   const isSetupMode  = !isFamilyMode && !isCoachMode;
   let selectedCategory = []; // [] = 全カテゴリー表示、複数選択可
@@ -2622,7 +2622,7 @@
               primary_color: d.c || existing.primary_color || '#c0392b' });
             // コーチモードをセッションに記憶してからハッシュを除去
             if (!isFamilyMode) {
-              try { sessionStorage.setItem('mrs_cal_coach', '1'); } catch(e) {}
+              try { sessionStorage.setItem('ams_cal_coach', '1'); } catch(e) {}
             }
             history.replaceState(null, '', location.pathname + location.search);
           }
