@@ -1608,8 +1608,10 @@
     if (ev.memo) { memoEl.textContent = '📝 ' + ev.memo; memoEl.classList.remove('hidden'); }
     else memoEl.classList.add('hidden');
 
-    // 管理者ボタン表示
+    // 管理者ボタン表示（編集・削除は管理者のみ）
     document.getElementById('detail-admin-btns').classList.toggle('hidden', !isAdmin);
+    // リンクコピー・回答確認は管理者 or ファミリーモードで表示（セットアップと同じ動作）
+    document.getElementById('detail-admin-links').classList.toggle('hidden', !isAdmin && !isFamilyMode);
 
     // 回答件数（イベントデータに含まれているので即時表示）
     const respCount = ev[TABLE_RESPONSES]?.[0]?.count ?? 0;
