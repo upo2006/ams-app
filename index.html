@@ -1052,6 +1052,7 @@
     const el = document.getElementById('app-team-name');
     if (!el) return;
     el.style.fontSize = '100px';
+    el.style.overflow = 'visible';
     const container = el.closest('.flex-1') || el.parentElement;
     if (!container) return;
     requestAnimationFrame(() => {
@@ -1061,6 +1062,7 @@
         fs -= 0.5;
         el.style.fontSize = fs + 'px';
       }
+      el.style.overflow = 'hidden';
     });
   }
 
