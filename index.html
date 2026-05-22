@@ -2646,6 +2646,7 @@
       if (isFromSetupGuide) {
         document.getElementById('loading-screen').classList.add('hidden');
         setAdminMode(false);
+        applyModeRestrictions();
         openLoginModal();
         return;
       }
