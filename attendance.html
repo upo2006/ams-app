@@ -1,0 +1,3069 @@
+<!doctype html>
+<html lang="ja" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>出欠確認システム</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary:      #c0392b;
+      --primary-dark: #922b21;
+      --primary-mid:  #a93226;
+      --primary-light:#e74c3c;
+    }
+    * { font-family: 'Noto Sans JP', sans-serif; }
+    body { box-sizing: border-box; }
+    .modal-backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
+    .btn-primary { transition: all 0.2s ease; }
+    .btn-primary:hover { transform: scale(1.02); }
+
+    .bg-primary       { background-color: var(--primary) !important; }
+    .bg-primary-dark  { background-color: var(--primary-dark) !important; }
+    .bg-red-500, .hover\:bg-red-500:hover   { background-color: var(--primary)      !important; }
+    .bg-red-600, .hover\:bg-red-600:hover   { background-color: var(--primary-mid)  !important; }
+    .bg-red-700, .hover\:bg-red-700:hover   { background-color: var(--primary-dark) !important; }
+    .from-red-700 { --tw-gradient-from: var(--primary-dark) !important; }
+    .from-red-600 { --tw-gradient-from: var(--primary-mid)  !important; }
+    .to-red-500   { --tw-gradient-to:   var(--primary)      !important; }
+    .to-red-600   { --tw-gradient-to:   var(--primary-mid)  !important; }
+    .text-red-600 { color: var(--primary-mid) !important; }
+    .text-red-500 { color: var(--primary)     !important; }
+    .focus\:ring-red-500:focus { --tw-ring-color: var(--primary) !important; }
+    .border-red-500 { border-color: var(--primary) !important; }
+
+    /* ラジオボタン */
+    .radio-btn {
+      width: 100%; padding: 0.5rem 0.15rem; border-radius: 0.75rem;
+      border: 2px solid #e5e7eb; background: #fff; color: #4b5563;
+      font-weight: 700; font-size: min(0.8rem, 3.5vw); cursor: pointer;
+      transition: all 0.15s; text-align: center; display: block;
+      white-space: nowrap;
+    }
+    .radio-btn:hover { border-color: #d1d5db; background: #f9fafb; }
+    .radio-btn[data-selected="1"][data-color="green"]  { border-color:#22c55e; background:#f0fdf4; color:#15803d; }
+    .radio-btn[data-selected="1"][data-color="red"]    { border-color:#ef4444; background:#fef2f2; color:#dc2626; }
+    .radio-btn[data-selected="1"][data-color="blue"]   { border-color:#3b82f6; background:#eff6ff; color:#1d4ed8; }
+    .radio-btn[data-selected="1"][data-color="amber"]  { border-color:#f59e0b; background:#fffbeb; color:#b45309; }
+    .radio-btn[data-selected="1"][data-color="gray"]   { border-color:#6b7280; background:#f9fafb; color:#374151; }
+    .radio-btn[data-selected="1"][data-color="purple"] { border-color:#8b5cf6; background:#f5f3ff; color:#6d28d9; }
+
+    /* 回答テーブル */
+    .resp-table th { background: #f9fafb; font-size:0.75rem; font-weight:700; color:#6b7280; padding:8px 10px; text-align:center; border-bottom:2px solid #e5e7eb; white-space:nowrap; }
+    .resp-table td { font-size:0.8rem; padding:8px 10px; text-align:center; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
+    .resp-table tr:last-child td { border-bottom:none; }
+    .resp-table tr:hover td { background:#f9fafb; }
+    .badge { display:inline-block; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:999px; white-space:nowrap; }
+
+    /* 時間ピッカー */
+    .tp-digit { width:2.75rem; height:3.25rem; background:#fff; border:2px solid #d1d5db; border-radius:0.75rem; display:flex; align-items:center; justify-content:center; font-size:1.375rem; font-weight:900; color:#1f2937; transition:all .15s; }
+    .tp-digit.active { border-color:#dc2626; background:#fef2f2; color:#dc2626; }
+    .tp-row-active span.tp-row-label { color:#dc2626; font-weight:900; }
+    .tp-num { background:#f3f4f6; border:none; border-radius:0.75rem; padding:.875rem 0; font-size:1.25rem; font-weight:700; color:#1f2937; cursor:pointer; transition:all .15s; width:100%; }
+    .tp-num:active { background:#e5e7eb; transform:scale(.95); }
+    .tp-func { color:#6b7280; font-size:1.1rem; }
+    .tp-now-btn { background:#fee2e2; color:#dc2626; font-size:.85rem; font-weight:900; }
+    .tp-now-btn:active { background:#fecaca; }
+    .tp-ampm { background:#f3f4f6; color:#6b7280; border:2px solid transparent; transition:all .15s; cursor:pointer; }
+    .tp-ampm.active { background:#fef2f2; color:#dc2626; border-color:#dc2626; }
+    .tp-ampm:active { opacity:.8; }
+  </style>
+</head>
+<body class="h-full bg-gray-50">
+<div id="app" class="min-h-full">
+
+  <!-- ローディング -->
+  <div id="loading-screen" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-[150] gap-4">
+    <div class="text-5xl">📋</div>
+    <div class="w-8 h-8 border-4 border-red-200 border-t-red-500 rounded-full animate-spin"></div>
+  </div>
+
+  <!-- ヘッダー -->
+  <header class="p-4">
+    <div class="max-w-[750px] mx-auto bg-gradient-to-r from-red-700 to-red-600 text-white px-4 py-3 shadow-lg rounded-2xl">
+      <div class="flex items-center gap-3">
+        <span class="text-3xl shrink-0">📋</span>
+        <div class="flex-1 min-w-0" style="min-width:0;overflow:hidden">
+          <h1 id="app-team-name" class="font-black leading-tight" style="font-size:min(1.25rem,4.5vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">出欠確認システム</h1>
+          <div class="flex items-center gap-2 mt-0.5">
+            <p class="text-xs text-white/80" style="letter-spacing:0.12em">ATTENDANCE SYSTEM</p>
+            <span id="mode-badge" class="text-[0.6rem] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider"></span>
+          </div>
+        </div>
+        <div class="relative shrink-0">
+          <button id="settings-btn" type="button" class="bg-white/15 hover:bg-white/25 text-white text-lg rounded-lg px-3 py-2 transition-colors">⚙️</button>
+          <div id="settings-menu" class="hidden absolute right-0 top-full mt-2 w-52 bg-white text-gray-800 rounded-xl shadow-xl border border-gray-200 overflow-hidden z-40">
+            <button type="button" onclick="openTeamManager()" class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors text-blue-600 font-bold">🏟️ チーム管理</button>
+            <button type="button" id="open-setup-menu-btn" class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 text-red-600 font-bold">⚙️ 接続設定</button>
+            <button type="button" onclick="openAdminLinkModal()" class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 text-red-600 font-bold">🔧 コーチリンク</button>
+            <button type="button" onclick="openParentLinkModal()" class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 text-green-600 font-bold">🔗 ファミリーリンク</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 管理者ビュー -->
+  <main id="admin-view" class="hidden max-w-[750px] mx-auto px-4 pb-4 space-y-3">
+    <!-- タブナビ -->
+    <div class="bg-white rounded-2xl shadow border border-gray-200 px-3 py-2.5 flex items-center gap-2">
+      <!-- 均等タブ（ピルスタイル） -->
+      <div class="flex flex-1 bg-gray-100 rounded-xl p-1 gap-1 min-w-0">
+        <button id="tab-events-btn" onclick="showAdminTab('events')"
+          class="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold bg-red-500 text-white transition-colors whitespace-nowrap">
+          ⚽ イベント
+        </button>
+        <button id="tab-players-btn" onclick="showAdminTab('players')"
+          class="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap">
+          👕 選手管理
+        </button>
+      </div>
+      <button id="create-event-btn" type="button"
+        class="shrink-0 bg-red-500 hover:bg-red-600 text-white font-bold px-3 py-2 rounded-xl text-xs transition-colors whitespace-nowrap">
+        ＋ 新規作成
+      </button>
+      <button id="add-player-btn" type="button" onclick="openPlayerModal()"
+        class="hidden shrink-0 bg-red-500 hover:bg-red-600 text-white font-bold px-3 py-2 rounded-xl text-xs transition-colors whitespace-nowrap">
+        ＋ 選手登録
+      </button>
+    </div>
+    <!-- イベント一覧 -->
+    <div id="admin-events-section">
+      <div id="event-list"></div>
+    </div>
+    <!-- 選手管理 -->
+    <div id="admin-players-section" class="hidden space-y-4">
+      <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-4 py-3">
+          <h3 class="text-sm font-bold">👕 カテゴリー別選手数</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-100">
+              <tr>
+                <th class="px-0 py-3 text-center text-sm font-bold text-gray-700">U7</th>
+                <th class="px-0 py-3 text-center text-sm font-bold text-gray-700">U8</th>
+                <th class="px-0 py-3 text-center text-sm font-bold text-gray-700">U9</th>
+                <th class="px-0 py-3 text-center text-sm font-bold text-gray-700">U10</th>
+                <th class="px-0 py-3 text-center text-sm font-bold text-gray-700">U11</th>
+                <th class="px-0 py-3 text-center text-sm font-bold text-gray-700">U12</th>
+                <th class="px-0 py-3 text-center text-sm font-bold text-gray-700 border-l-2 border-gray-400">合計</th>
+              </tr>
+            </thead>
+            <tbody id="player-category-stats">
+              <tr class="border-b border-gray-200 text-center">
+                <td colspan="7" class="px-4 py-6 text-gray-500 text-sm">選手情報がまだありません</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div id="player-list" class="space-y-3"></div>
+      <div id="player-empty-state" class="text-center py-12 bg-white rounded-xl shadow-lg">
+        <span class="text-6xl mb-4 block">👥</span>
+        <p class="text-gray-600 text-lg">選手がまだ登録されていません</p>
+        <p class="text-gray-500 text-sm mt-2">上のボタンから選手を登録しましょう</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- 保護者イベント一覧ビュー -->
+  <main id="parent-list-view" class="hidden max-w-[750px] mx-auto px-4 pb-4 space-y-3">
+    <!-- タイトル＋ボタン（ファミリーモード） -->
+    <div class="bg-white rounded-2xl shadow border border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
+      <h2 class="text-base font-black text-gray-800 whitespace-nowrap">⚽ イベント一覧</h2>
+      <button id="parent-create-event-btn" type="button" hidden
+        class="shrink-0 bg-red-500 hover:bg-red-600 text-white font-bold px-3 py-2 rounded-xl text-xs transition-colors whitespace-nowrap">
+        ＋ 新規作成
+      </button>
+    </div>
+    <div id="parent-event-list"></div>
+  </main>
+
+  <!-- 回答ビュー（保護者） -->
+  <main id="respond-view" class="hidden max-w-[750px] mx-auto px-4 pb-4 space-y-4">
+    <button id="back-to-list-btn" class="hidden text-sm text-gray-500 hover:text-gray-700 font-medium flex items-center gap-1 py-1">
+      ← イベント一覧に戻る
+    </button>
+    <div id="event-info-card" class="hidden bg-white rounded-2xl shadow p-5"></div>
+    <div id="form-container"></div>
+  </main>
+
+  <footer class="mt-2 pb-4">
+    <div class="max-w-[750px] mx-auto px-4">
+      <div class="py-6 text-center bg-gradient-to-r from-red-700 to-red-600 text-white rounded-xl shadow-lg">
+        <img id="footer-image" src="" alt="footer image" class="hidden mx-auto mb-4 max-h-20 w-auto object-contain">
+        <p id="footer-text" class="text-xs text-white/90 mt-1">© ATTENDANCE SYSTEM</p>
+      </div>
+    </div>
+  </footer>
+
+</div><!-- /app -->
+
+<!-- ══ イベントカード詳細モーダル ══════════════════════════════════════ -->
+<div id="att-card-detail-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeAttCardDetail()"></div>
+  <div class="relative w-full max-w-xs bg-white rounded-2xl shadow-2xl overflow-auto" style="max-height:85vh">
+    <div class="px-4 pt-4 pb-3 border-b border-gray-100">
+      <div class="flex items-start justify-between gap-2 mb-2">
+        <h2 id="att-card-detail-title" class="text-base font-black text-gray-800 leading-snug flex-1 min-w-0"></h2>
+        <button onclick="closeAttCardDetail()" class="text-gray-400 hover:text-gray-600 text-xl leading-none shrink-0 ml-1">×</button>
+      </div>
+      <div id="att-card-detail-info" class="text-xs text-gray-600"></div>
+      <div id="att-card-detail-memo" class="hidden mt-2 bg-amber-50 rounded-lg px-2.5 py-1.5 text-amber-800 text-xs"></div>
+    </div>
+    <div class="p-3 space-y-2">
+      <div id="att-card-admin-links" class="hidden grid grid-cols-2 gap-2">
+        <button onclick="attCardCopyLink()" class="flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-xl text-xs transition-colors">🔗 リンクをコピー</button>
+        <button onclick="attCardViewResponses()" class="flex items-center justify-center gap-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-xl text-xs transition-colors"><span id="att-card-resp-label">📊 回答を確認</span></button>
+      </div>
+      <div id="att-card-admin-btns" class="hidden grid grid-cols-2 gap-2">
+        <button onclick="attCardEdit()" class="flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-xs transition-colors">✏️ 編集</button>
+        <button onclick="attCardDeleteConfirm()" class="flex items-center justify-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2 rounded-xl text-xs transition-colors">🗑️ 削除</button>
+      </div>
+      <div id="att-card-parent-btns" class="hidden grid grid-cols-2 gap-2">
+        <button onclick="attCardRespond()" class="flex items-center justify-center gap-1 bg-red-500 hover:bg-red-600 text-white font-black py-2.5 rounded-xl text-sm transition-colors">✏️ 回答する</button>
+        <button onclick="attCardResults()" class="flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2.5 rounded-xl text-sm transition-colors"><span id="att-card-parent-resp-label">📊 結果を見る</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 選手追加・編集モーダル ══════════════════════════════════════════ -->
+<div id="player-modal" class="fixed inset-0 z-[100] hidden">
+  <div class="modal-backdrop absolute inset-0" onclick="closePlayerModal()"></div>
+  <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl bg-white rounded-2xl shadow-2xl overflow-auto max-h-full">
+    <div class="p-6">
+      <div class="flex justify-between items-center mb-6">
+        <h2 id="player-modal-title" class="text-xl font-bold text-gray-800">選手を追加</h2>
+        <button onclick="closePlayerModal()" class="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+      </div>
+      <div class="space-y-4">
+        <input type="hidden" id="player-edit-id">
+        <div>
+          <label class="block text-gray-700 text-sm font-medium mb-1">カテゴリー</label>
+          <select id="player-category" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+            <option value="">未設定</option>
+            <option value="U7">U7</option>
+            <option value="U8">U8</option>
+            <option value="U9">U9</option>
+            <option value="U10">U10</option>
+            <option value="U11">U11</option>
+            <option value="U12">U12</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-gray-700 text-sm font-medium mb-1">背番号</label>
+          <input type="number" id="player-number" min="0" max="99" placeholder="背番号を入力" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+        </div>
+        <div>
+          <label class="block text-gray-700 text-sm font-medium mb-1">選手名</label>
+          <input type="text" id="player-name" placeholder="選手の名前" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500">
+        </div>
+        <p id="player-modal-error" class="hidden text-sm text-red-600 font-medium"></p>
+        <button onclick="savePlayer()" class="btn-primary w-full bg-gradient-to-r from-red-600 to-red-500 text-white font-bold py-4 rounded-xl shadow-lg transition-colors">
+          <span id="player-save-label">選手を登録</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 選手削除確認モーダル ════════════════════════════════════════════ -->
+<div id="player-delete-modal" class="fixed inset-0 z-[110] hidden">
+  <div class="modal-backdrop absolute inset-0" onclick="closeDeletePlayerModal()"></div>
+  <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-sm bg-white rounded-2xl shadow-2xl p-6">
+    <div class="text-center">
+      <span class="text-5xl mb-4 block">🗑️</span>
+      <h3 class="text-xl font-bold text-gray-800 mb-2">この選手を削除しますか？</h3>
+      <p class="text-gray-600 text-sm mb-6">この操作は取り消せません</p>
+      <div class="flex gap-3">
+        <button onclick="closeDeletePlayerModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 rounded-xl transition-colors">キャンセル</button>
+        <button onclick="handleDeletePlayer()" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl transition-colors">
+          <span id="player-delete-text">削除する</span>
+          <span id="player-delete-loading" class="hidden">削除中...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ コーチリンク発行モーダル ══════════════════════════════════════ -->
+<div id="admin-link-modal" class="fixed inset-0 z-[100] hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeAdminLinkModal()"></div>
+  <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg bg-white rounded-2xl shadow-2xl overflow-auto max-h-full">
+    <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-6 py-5 rounded-t-2xl flex items-center justify-between">
+      <h2 class="text-xl font-black">🔧 コーチリンクを発行</h2>
+      <button onclick="closeAdminLinkModal()" class="text-white/70 hover:text-white text-2xl leading-none">×</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <p class="text-sm text-gray-600">接続設定済みの管理者用リンクを生成します。このリンクを開くと接続設定なしで即座に使用できます。</p>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-1">アプリの公開URL <span class="text-red-500">*</span></label>
+        <input type="url" id="admin-link-base-url" placeholder="https://your-name.github.io/mrs-app/attendance.html" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500" oninput="updateAdminLink()">
+      </div>
+      <div id="admin-link-result" class="hidden space-y-2">
+        <label class="block text-gray-700 text-sm font-bold">生成されたリンク</label>
+        <div class="flex gap-2">
+          <input type="text" id="admin-link-url" readonly class="flex-1 bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600 font-mono">
+          <button onclick="copyAdminLink()" class="shrink-0 bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-lg text-sm transition-colors">コピー</button>
+        </div>
+        <p id="admin-link-copy-msg" class="hidden text-xs text-green-600 font-medium">✅ クリップボードにコピーしました</p>
+      </div>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700 space-y-1">
+        <p class="font-bold">⚠️ セキュリティについて</p>
+        <p>このリンクにはSupabase接続情報が含まれます。信頼できる管理者のみに共有してください。リンクを開いた人はイベントの追加・編集・削除が可能です。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ファミリーリンク発行モーダル ════════════════════════════════════════ -->
+<div id="parent-link-modal" class="fixed inset-0 z-[100] hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeParentLinkModal()"></div>
+  <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg bg-white rounded-2xl shadow-2xl overflow-auto max-h-full">
+    <div class="bg-gradient-to-r from-green-700 to-green-600 text-white px-6 py-5 rounded-t-2xl flex items-center justify-between">
+      <div>
+        <h2 class="text-xl font-black">🔗 ファミリーリンクを発行</h2>
+        <p class="text-sm text-white/80 mt-1">イベント一覧と出欠回答ができるリンク</p>
+      </div>
+      <button onclick="closeParentLinkModal()" class="text-white/70 hover:text-white text-2xl leading-none ml-3 shrink-0">×</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <p class="text-sm text-gray-600">このリンクを保護者に共有すると、イベント一覧の確認・出欠の回答ができます。接続設定なしでそのまま使えます。</p>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-1">アプリの公開URL <span class="text-red-500">*</span></label>
+        <input type="url" id="parent-link-base-url" placeholder="https://your-name.github.io/mrs-app/attendance.html" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500" oninput="updateParentLink()">
+      </div>
+      <div id="parent-link-result" class="hidden space-y-2">
+        <label class="block text-gray-700 text-sm font-bold">生成されたリンク</label>
+        <div class="flex gap-2">
+          <input type="text" id="parent-link-url" readonly class="flex-1 bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600 font-mono">
+          <button onclick="copyParentLink()" class="shrink-0 bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-2 rounded-lg text-sm transition-colors">コピー</button>
+        </div>
+        <p id="parent-link-copy-msg" class="hidden text-xs text-green-600 font-medium">✅ クリップボードにコピーしました</p>
+      </div>
+      <div class="bg-green-50 border border-green-200 rounded-xl p-3 text-xs text-green-700 space-y-1">
+        <p class="font-bold">ℹ️ このリンクでできること</p>
+        <p>✅ イベント一覧の閲覧（カテゴリー別）</p>
+        <p>✅ 出欠・送迎・配車の回答</p>
+        <p>❌ イベントの追加・編集・削除はできません</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 接続設定モーダル ══════════════════════════════════════════════ -->
+<div id="setup-modal" class="fixed inset-0 z-[100] hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+  <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg bg-white rounded-2xl shadow-2xl overflow-auto max-h-full">
+    <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-6 py-5 rounded-t-2xl flex items-start justify-between">
+      <div>
+        <h2 class="text-xl font-black">⚙️ 接続設定</h2>
+        <p class="text-sm text-white/80 mt-1">Supabaseの接続情報を入力してください</p>
+      </div>
+      <button onclick="document.getElementById('setup-modal').classList.add('hidden')" class="text-white/70 hover:text-white text-2xl leading-none ml-3 shrink-0">×</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-1">チーム名 <span class="text-red-500">*</span></label>
+        <input type="text" id="setup-team-name" placeholder="○○サッカースクール"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+      </div>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-1">Supabase URL <span class="text-red-500">*</span></label>
+        <input type="url" id="setup-url" placeholder="https://xxxxxxxxxx.supabase.co"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-red-500" spellcheck="false">
+      </div>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-1">anon public キー <span class="text-red-500">*</span></label>
+        <input type="text" id="setup-anon-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-red-500" spellcheck="false">
+      </div>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-1">フッターテキスト</label>
+        <input type="text" id="setup-footer-text" placeholder="入力なし → © ATTENDANCE SYSTEM"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+        <p class="text-xs text-gray-500 mt-1.5">
+          💡 例：<span class="font-medium">© ○○FC Since 2018</span><br>
+          💡 例：<span class="font-medium">"全員で上を目指す"</span>
+        </p>
+      </div>
+      <div>
+        <label class="block text-gray-700 text-sm font-bold mb-2">メインカラー</label>
+        <div class="flex items-center gap-2 mb-3 p-2 bg-gray-50 rounded-xl border border-gray-200">
+          <div id="att-color-preview-swatch" class="w-9 h-9 rounded-lg border border-gray-300 shadow-inner shrink-0" style="background:#c0392b"></div>
+          <span id="att-color-preview-hex" class="text-sm font-mono font-bold text-gray-700 flex-1 uppercase">#C0392B</span>
+          <label class="flex items-center gap-1.5 cursor-pointer bg-white border border-gray-300 hover:bg-gray-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-gray-600 transition-colors shrink-0">
+            🎨 カスタム
+            <input type="color" id="setup-primary-color" value="#c0392b" class="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent">
+          </label>
+        </div>
+        <div class="grid grid-cols-8 gap-1.5">
+          <button type="button" onclick="attSetPresetColor('#b71c1c')" data-color="#b71c1c" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#b71c1c" title="ダークレッド"></button>
+          <button type="button" onclick="attSetPresetColor('#c0392b')" data-color="#c0392b" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#c0392b" title="レッド"></button>
+          <button type="button" onclick="attSetPresetColor('#e53935')" data-color="#e53935" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#e53935" title="ブライトレッド"></button>
+          <button type="button" onclick="attSetPresetColor('#f44336')" data-color="#f44336" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#f44336" title="ライトレッド"></button>
+          <button type="button" onclick="attSetPresetColor('#880e4f')" data-color="#880e4f" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#880e4f" title="ダークピンク"></button>
+          <button type="button" onclick="attSetPresetColor('#ad1457')" data-color="#ad1457" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#ad1457" title="ピンク"></button>
+          <button type="button" onclick="attSetPresetColor('#e91e63')" data-color="#e91e63" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#e91e63" title="ローズ"></button>
+          <button type="button" onclick="attSetPresetColor('#f06292')" data-color="#f06292" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#f06292" title="ライトピンク"></button>
+          <button type="button" onclick="attSetPresetColor('#4a148c')" data-color="#4a148c" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#4a148c" title="ダークパープル"></button>
+          <button type="button" onclick="attSetPresetColor('#7b1fa2')" data-color="#7b1fa2" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#7b1fa2" title="パープル"></button>
+          <button type="button" onclick="attSetPresetColor('#8e44ad')" data-color="#8e44ad" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#8e44ad" title="バイオレット"></button>
+          <button type="button" onclick="attSetPresetColor('#5e35b1')" data-color="#5e35b1" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#5e35b1" title="インディゴ"></button>
+          <button type="button" onclick="attSetPresetColor('#1a237e')" data-color="#1a237e" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#1a237e" title="ダークネイビー"></button>
+          <button type="button" onclick="attSetPresetColor('#1565c0')" data-color="#1565c0" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#1565c0" title="ダークブルー"></button>
+          <button type="button" onclick="attSetPresetColor('#0d47a1')" data-color="#0d47a1" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#0d47a1" title="ロイヤルブルー"></button>
+          <button type="button" onclick="attSetPresetColor('#2980b9')" data-color="#2980b9" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#2980b9" title="ブルー"></button>
+          <button type="button" onclick="attSetPresetColor('#006064')" data-color="#006064" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#006064" title="ダークシアン"></button>
+          <button type="button" onclick="attSetPresetColor('#00695c')" data-color="#00695c" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#00695c" title="ティール"></button>
+          <button type="button" onclick="attSetPresetColor('#004d40')" data-color="#004d40" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#004d40" title="ダークグリーン"></button>
+          <button type="button" onclick="attSetPresetColor('#1b5e20')" data-color="#1b5e20" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#1b5e20" title="フォレスト"></button>
+          <button type="button" onclick="attSetPresetColor('#1a6b3c')" data-color="#1a6b3c" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#1a6b3c" title="グリーン"></button>
+          <button type="button" onclick="attSetPresetColor('#2e7d32')" data-color="#2e7d32" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#2e7d32" title="ミドルグリーン"></button>
+          <button type="button" onclick="attSetPresetColor('#388e3c')" data-color="#388e3c" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#388e3c" title="ライトグリーン"></button>
+          <button type="button" onclick="attSetPresetColor('#43a047')" data-color="#43a047" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#43a047" title="ブライトグリーン"></button>
+          <button type="button" onclick="attSetPresetColor('#e65100')" data-color="#e65100" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#e65100" title="ダークオレンジ"></button>
+          <button type="button" onclick="attSetPresetColor('#d35400')" data-color="#d35400" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#d35400" title="オレンジ"></button>
+          <button type="button" onclick="attSetPresetColor('#e67e22')" data-color="#e67e22" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#e67e22" title="ライトオレンジ"></button>
+          <button type="button" onclick="attSetPresetColor('#f39c12')" data-color="#f39c12" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#f39c12" title="アンバー"></button>
+          <button type="button" onclick="attSetPresetColor('#b07d1a')" data-color="#b07d1a" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#b07d1a" title="ゴールド"></button>
+          <button type="button" onclick="attSetPresetColor('#6d4c41')" data-color="#6d4c41" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#6d4c41" title="ブラウン"></button>
+          <button type="button" onclick="attSetPresetColor('#37474f')" data-color="#37474f" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#37474f" title="スレート"></button>
+          <button type="button" onclick="attSetPresetColor('#333333')" data-color="#333333" class="att-color-preset-btn w-full aspect-square rounded-md border border-black/10 hover:scale-110 transition-transform" style="background:#333333" title="ブラック"></button>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">ヘッダー・ボタン等のカラーを変更できます</p>
+      </div>
+      <div id="setup-status" class="hidden text-sm rounded-lg px-4 py-3 font-medium"></div>
+      <button id="setup-save-btn" type="button"
+        class="w-full bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-xl transition-colors">
+        <span id="setup-save-text">接続テスト＆保存</span>
+        <span id="setup-save-loading" class="hidden">接続テスト中...</span>
+      </button>
+      <p class="text-xs text-gray-400 text-center">MRSアプリと同じSupabaseプロジェクトを使う場合、<br>同じURL・キーを入力してください</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ イベント作成／編集モーダル ══════════════════════════════════════ -->
+<div id="create-event-modal" class="fixed inset-0 z-[100] hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeCreateEventModal()"></div>
+  <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" style="max-height:calc(100vh - 2rem)">
+    <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-5 py-3 rounded-t-2xl flex items-center justify-between shrink-0">
+      <h2 id="create-modal-title" class="text-lg font-black">⚽ イベントを作成</h2>
+      <button onclick="closeCreateEventModal()" class="text-white/70 hover:text-white text-2xl leading-none">×</button>
+    </div>
+    <div class="overflow-y-auto flex-1 px-4 py-3 space-y-2.5">
+      <input type="hidden" id="edit-event-id">
+      <!-- カテゴリー -->
+      <div>
+        <label class="block text-gray-700 text-xs font-bold mb-1">カテゴリ</label>
+        <select id="ev-category"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+          <option value="">未設定</option>
+          <option value="U7">U7</option>
+          <option value="U8">U8</option>
+          <option value="U9">U9</option>
+          <option value="U10">U10</option>
+          <option value="U11">U11</option>
+          <option value="U12">U12</option>
+        </select>
+      </div>
+      <!-- タイトル -->
+      <div>
+        <label class="block text-gray-700 text-xs font-bold mb-1">タイトル <span class="text-red-500">*</span></label>
+        <input type="text" id="ev-title" placeholder="例：5.10 試合"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+      </div>
+      <!-- 日付 -->
+      <div>
+        <label class="block text-gray-700 text-xs font-bold mb-1">日付 <span class="text-red-500">*</span></label>
+        <input type="date" id="ev-date"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+      </div>
+      <!-- 時間 -->
+      <div>
+        <label class="block text-gray-700 text-xs font-bold mb-1">時間</label>
+        <div class="relative">
+          <input type="text" id="ev-time" placeholder="タップして時間を設定" readonly
+            class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 pr-10 text-sm text-gray-800 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500"
+            onclick="openTimePicker()">
+          <button type="button" onclick="openTimePicker()" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-base leading-none">🕐</button>
+        </div>
+      </div>
+      <!-- 場所 -->
+      <div>
+        <label class="block text-gray-700 text-xs font-bold mb-1">場所</label>
+        <input type="text" id="ev-location" placeholder="例：伊丹市立桜台小学校"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+      </div>
+      <!-- 移動手段 -->
+      <div>
+        <label class="block text-gray-700 text-xs font-bold mb-1">移動手段</label>
+        <input type="text" id="ev-transport" placeholder="例：車"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+      </div>
+      <!-- メモ -->
+      <div>
+        <label class="block text-gray-700 text-xs font-bold mb-1">メモ（保護者へのお知らせ）</label>
+        <textarea id="ev-memo" rows="1" placeholder="任意"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"></textarea>
+      </div>
+      <div id="create-event-status" class="hidden text-sm rounded-lg px-3 py-2 font-medium"></div>
+    </div>
+    <div class="px-4 pb-4 pt-2 shrink-0">
+      <button id="save-event-btn" type="button"
+        class="w-full bg-red-500 hover:bg-red-600 text-white font-black py-2.5 rounded-xl transition-colors">
+        <span id="save-event-text">保存する</span>
+        <span id="save-event-loading" class="hidden">保存中...</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ イベント詳細モーダル ══════════════════════════════════════════ -->
+<div id="detail-modal" class="fixed inset-0 z-[100] hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeDetailModal()"></div>
+  <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" style="max-height:calc(100vh - 2rem)">
+    <!-- 固定: ヘッダー -->
+    <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-5 py-4 rounded-t-2xl flex items-start justify-between shrink-0">
+      <div class="min-w-0 flex-1">
+        <div id="detail-title" class="text-xl font-black leading-tight mb-1"></div>
+        <div id="detail-subtitle" class="text-xs text-white/80 space-y-0.5"></div>
+      </div>
+      <button onclick="closeDetailModal()" class="text-white/70 hover:text-white text-2xl leading-none shrink-0 ml-3">×</button>
+    </div>
+    <!-- 固定: 集計 -->
+    <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 shrink-0">
+      <div class="grid grid-cols-4 gap-2 text-center">
+        <div class="bg-white rounded-xl p-2.5 shadow-sm flex flex-col">
+          <p class="text-xs text-gray-400 leading-tight flex-1 flex items-end justify-center pb-1">回答数</p>
+          <p id="summary-total" class="text-xl font-black text-gray-700">0</p>
+        </div>
+        <div class="bg-green-50 rounded-xl p-2.5 flex flex-col">
+          <p class="text-xs text-gray-400 leading-tight flex-1 flex items-end justify-center pb-1">出席</p>
+          <p id="summary-attend" class="text-xl font-black text-green-600">0</p>
+        </div>
+        <div class="bg-red-50 rounded-xl p-2.5 flex flex-col">
+          <p class="text-xs text-gray-400 leading-tight flex-1 flex items-end justify-center pb-1">乗せて<br>欲しい</p>
+          <p id="summary-need-ride" class="text-xl font-black text-red-600">0</p>
+        </div>
+        <div class="bg-blue-50 rounded-xl p-2.5 flex flex-col">
+          <p class="text-xs text-gray-400 leading-tight flex-1 flex items-end justify-center pb-1">配車<br>できる</p>
+          <p id="summary-can-drive" class="text-xl font-black text-blue-600">0</p>
+        </div>
+      </div>
+    </div>
+    <!-- スクロール: 回答一覧 -->
+    <div class="overflow-y-auto flex-1">
+      <div id="response-list"></div>
+      <p id="no-responses" class="hidden text-center text-gray-400 text-sm py-8">まだ回答がありません</p>
+    </div>
+  </div>
+</div>
+<!-- チーム管理モーダル -->
+<div id="att-team-manager-modal" class="fixed inset-0 z-[110] hidden">
+  <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeTeamManager()"></div>
+  <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-md bg-white rounded-2xl shadow-2xl overflow-auto max-h-full">
+    <div class="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-6 py-5 rounded-t-2xl flex items-center justify-between">
+      <h2 class="text-xl font-black">🏟️ チーム管理</h2>
+      <button onclick="closeTeamManager()" class="text-white/70 hover:text-white text-2xl leading-none">×</button>
+    </div>
+    <div class="p-4 space-y-3">
+      <div id="att-team-list" class="space-y-2"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 時間ピッカー -->
+<div id="time-picker-modal" class="hidden fixed inset-0 z-[210] flex items-end sm:items-center justify-center">
+  <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeTimePicker()"></div>
+  <div class="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+    <!-- ヘッダー -->
+    <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-5 py-4 flex items-center gap-3">
+      <span class="text-xl">🕐</span>
+      <h3 class="text-lg font-black">時間設定</h3>
+    </div>
+    <!-- 午前/午後/終日 -->
+    <div class="px-4 pt-3 pb-0 flex gap-2">
+      <button id="tp-btn-none" class="tp-ampm flex-1 py-1.5 rounded-lg text-sm font-bold" onclick="tpSetAmPm('')">指定なし</button>
+      <button id="tp-btn-am"   class="tp-ampm flex-1 py-1.5 rounded-lg text-sm font-bold" onclick="tpSetAmPm('午前')">午前</button>
+      <button id="tp-btn-pm"   class="tp-ampm flex-1 py-1.5 rounded-lg text-sm font-bold" onclick="tpSetAmPm('午後')">午後</button>
+      <button id="tp-btn-all"  class="tp-ampm flex-1 py-1.5 rounded-lg text-sm font-bold" onclick="tpSetAmPm('終日')">終日</button>
+    </div>
+    <!-- デジット表示 -->
+    <div class="px-5 pt-3 pb-3 bg-gray-50 border-b border-gray-200 space-y-2.5">
+      <div id="tp-row-0" class="flex items-center gap-2">
+        <span class="tp-row-label text-xs font-bold text-gray-400 w-10 shrink-0 transition-colors cursor-pointer" onclick="tpMoveCursor(0,0)">開始</span>
+        <div class="flex items-center gap-1.5">
+          <div id="tp-s0" class="tp-digit cursor-pointer" onclick="tpMoveCursor(0,0)">—</div>
+          <div id="tp-s1" class="tp-digit cursor-pointer" onclick="tpMoveCursor(0,1)">—</div>
+          <span class="text-xl font-black text-gray-300 mx-0.5">:</span>
+          <div id="tp-s2" class="tp-digit cursor-pointer" onclick="tpMoveCursor(0,2)">—</div>
+          <div id="tp-s3" class="tp-digit cursor-pointer" onclick="tpMoveCursor(0,3)">—</div>
+        </div>
+      </div>
+      <div id="tp-row-1" class="flex items-center gap-2">
+        <span class="tp-row-label text-xs font-bold text-gray-400 w-10 shrink-0 transition-colors cursor-pointer" onclick="tpMoveCursor(1,0)">終了</span>
+        <div class="flex items-center gap-1.5">
+          <div id="tp-e0" class="tp-digit cursor-pointer" onclick="tpMoveCursor(1,0)">—</div>
+          <div id="tp-e1" class="tp-digit cursor-pointer" onclick="tpMoveCursor(1,1)">—</div>
+          <span class="text-xl font-black text-gray-300 mx-0.5">:</span>
+          <div id="tp-e2" class="tp-digit cursor-pointer" onclick="tpMoveCursor(1,2)">—</div>
+          <div id="tp-e3" class="tp-digit cursor-pointer" onclick="tpMoveCursor(1,3)">—</div>
+        </div>
+      </div>
+    </div>
+    <!-- テンキー -->
+    <div class="p-3 grid grid-cols-4 gap-2">
+      <button class="tp-num" onclick="tpInput(1)">1</button>
+      <button class="tp-num" onclick="tpInput(2)">2</button>
+      <button class="tp-num" onclick="tpInput(3)">3</button>
+      <button class="tp-num tp-func" onclick="tpBackspace()">←</button>
+      <button class="tp-num" onclick="tpInput(4)">4</button>
+      <button class="tp-num" onclick="tpInput(5)">5</button>
+      <button class="tp-num" onclick="tpInput(6)">6</button>
+      <button class="tp-num tp-now-btn" onclick="tpNow()">NOW</button>
+      <button class="tp-num" onclick="tpInput(7)">7</button>
+      <button class="tp-num" onclick="tpInput(8)">8</button>
+      <button class="tp-num" onclick="tpInput(9)">9</button>
+      <button class="tp-num" onclick="tpInput(0)">0</button>
+    </div>
+    <!-- アクションボタン -->
+    <div class="px-4 pb-5 grid grid-cols-3 gap-2">
+      <button onclick="confirmTimePicker()" class="bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-xl transition-colors">設定</button>
+      <button onclick="clearTimePicker()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-colors">クリア</button>
+      <button onclick="closeTimePicker()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-colors">戻る</button>
+    </div>
+  </div>
+</div>
+
+<!-- 回答詳細ポップアップ -->
+<div id="memo-popup" class="fixed inset-0 z-[200] hidden flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/50" onclick="closeMemoPopup()"></div>
+  <div class="relative bg-white rounded-2xl shadow-2xl overflow-hidden max-w-sm w-full">
+    <div id="memo-popup-content" class="p-5"></div>
+    <div class="px-5 pb-5">
+      <button onclick="closeMemoPopup()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-sm transition-colors">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ─── 定数・設定 ──────────────────────────────────────────────────────────
+  const STORAGE_CONFIG_KEY = 'ams_app_config_v1';
+  const STORAGE_TEAMS_KEY  = 'ams_teams_v1';
+  const STORAGE_ACTIVE_KEY = 'ams_active_team_v1';
+  const TABLE_EVENTS        = 'attendance_events';
+  const TABLE_RESPONSES     = 'attendance_responses';
+  const TABLE_PLAYERS       = 'app_records';  // MRSと共通
+  const TABLE_NOTIFICATIONS = 'attendance_notifications';
+  const NOTIF_LAST_SEEN_KEY = 'att_notif_last_seen';
+
+  let SUPABASE_CONFIG = { url: '', anonKey: '' };
+  let supabaseClient  = null;
+  let events = [];
+  let playersMap = {};   // { '10': '山田太郎', ... }
+  let currentEventId = null;
+  let detailResponses  = [];   // 現在表示中の回答データ
+  let detailSortCol    = null; // ソート中の列キー
+  let detailSortAsc    = true; // true=昇順
+  let detailContext    = 'admin'; // 'admin' | 'parent'
+  let parentHashConfig = null;  // 保護者モード用config
+
+  const params = new URLSearchParams(location.search);
+  const respondEventId = params.get('respond');
+  const isRespondMode  = !!respondEventId;
+  const isParentMode   = params.get('view') === 'parent';
+  const isFamilyMode   = isParentMode;
+  // コーチモード：URLハッシュ または セッション継続中（リロード対応）
+  const _coachSessAtt  = (() => { try { return sessionStorage.getItem('mrs_att_coach') === '1'; } catch(e) { return false; } })();
+  const isCoachMode    = !isFamilyMode && (!!location.hash || _coachSessAtt);
+  const isSetupMode    = !isFamilyMode && !isCoachMode;
+
+  const CATEGORY_ORDER = ['U7','U8','U9','U10','U11','U12'];
+  const CAT_COLORS = { 'U7':'#8B5CF6','U8':'#3B82F6','U9':'#10B981','U10':'#06B6D4','U11':'#F59E0B','U12':'#EF4444' };
+  function catColor(cat) { return CAT_COLORS[cat] || '#6B7280'; }
+  const ATTEND_COLOR    = { '出席':'bg-green-100 text-green-700', '欠席':'bg-gray-100 text-gray-500', '未定':'bg-yellow-100 text-yellow-600' };
+  const TRANSPORT_COLOR = { '乗せて欲しい':'bg-red-100 text-red-600', '大丈夫':'bg-gray-100 text-gray-500', '未定':'bg-yellow-100 text-yellow-600' };
+  const CARPOOL_COLOR   = { 'できる':'bg-blue-100 text-blue-700', '難しい':'bg-gray-100 text-gray-500', '未定':'bg-yellow-100 text-yellow-600' };
+  function _loadAttCats(key) {
+    try { const r = localStorage.getItem(key); if (!r) return []; const p = JSON.parse(r); return Array.isArray(p) ? p : []; } catch(e) { return []; }
+  }
+  let attSelectedCategories       = _loadAttCats('att_selected_cats');
+  let attParentSelectedCategories = _loadAttCats('att_parent_selected_cats');
+
+  // ─── カテゴリー動的計算ヘルパー ────────────────────────────────────────────
+  function currentFiscalYear() {
+    const now = new Date();
+    return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  }
+  function fiscalYearFromDate(dateStr) {
+    const d = new Date(dateStr);
+    return d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
+  }
+  function playerCurrentCategory(p) {
+    const payload = p.payload || {};
+    const base = (payload.base_category || payload.category || '').trim();
+    const baseIdx = CATEGORY_ORDER.indexOf(base);
+    if (baseIdx === -1) return base || '未設定';
+    const entryYear = payload.entry_fiscal_year
+      ? Number(payload.entry_fiscal_year)
+      : (p.created_at ? fiscalYearFromDate(p.created_at) : currentFiscalYear());
+    const diff = currentFiscalYear() - entryYear;
+    const idx  = baseIdx + diff;
+    if (idx < 0) return '未入会';
+    if (idx >= CATEGORY_ORDER.length) return '卒業生';
+    return CATEGORY_ORDER[idx];
+  }
+
+  // ─── Config ──────────────────────────────────────────────────────────────
+  function loadConfig() {
+    try {
+      const teams = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
+      const activeId = localStorage.getItem(STORAGE_ACTIVE_KEY);
+      const active = teams.find(t => t.id === activeId) || teams[0];
+      if (active?.supabase_url) {
+        return { supabase_url: active.supabase_url, supabase_anon_key: active.supabase_anon_key, team_name: active.team_name, primary_color: active.primary_color, footer_text: active.footer_text };
+      }
+      const raw = localStorage.getItem(STORAGE_CONFIG_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch(e) { return null; }
+  }
+
+  function saveConfig(cfg) {
+    try {
+      localStorage.setItem(STORAGE_CONFIG_KEY, JSON.stringify(cfg));
+      // STORAGE_TEAMS_KEY のアクティブチームも同期更新（MRSと共通ストレージのため）
+      const teams = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
+      const activeId = localStorage.getItem(STORAGE_ACTIVE_KEY);
+      const idx = activeId
+        ? teams.findIndex(t => t.id === activeId)
+        : teams.findIndex(t => t.supabase_url === cfg.supabase_url);
+      if (idx >= 0) {
+        if (cfg.primary_color) teams[idx].primary_color = cfg.primary_color;
+        if (cfg.team_name)     teams[idx].team_name     = cfg.team_name;
+        if (cfg.footer_text)   teams[idx].footer_text   = cfg.footer_text;
+        localStorage.setItem(STORAGE_TEAMS_KEY, JSON.stringify(teams));
+      }
+    } catch(e) {}
+  }
+
+  function applyConfig(cfg) {
+    if (!cfg) return;
+    if (cfg.team_name) {
+      document.getElementById('app-team-name').textContent = cfg.team_name;
+    }
+    const footerEl = document.getElementById('footer-text');
+    if (footerEl) footerEl.textContent = cfg.footer_text || '© ATTENDANCE SYSTEM';
+    if (cfg.primary_color) applyColor(cfg.primary_color);
+    if (cfg.supabase_url)      SUPABASE_CONFIG.url     = cfg.supabase_url;
+    if (cfg.supabase_anon_key) SUPABASE_CONFIG.anonKey = cfg.supabase_anon_key;
+  }
+
+  function applyColor(hex) {
+    if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return;
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    const dark = `rgb(${Math.round(r*.75)},${Math.round(g*.75)},${Math.round(b*.75)})`;
+    const mid  = `rgb(${Math.round(r*.88)},${Math.round(g*.88)},${Math.round(b*.88)})`;
+    const root = document.documentElement;
+    root.style.setProperty('--primary', hex);
+    root.style.setProperty('--primary-dark', dark);
+    root.style.setProperty('--primary-mid', mid);
+  }
+
+  function parseHashConfig() {
+    const hash = location.hash.slice(1);
+    if (!hash) return null;
+    try {
+      return JSON.parse(decodeURIComponent(escape(atob(hash))));
+    } catch(e) { return null; }
+  }
+
+  function buildHashString(cfg) {
+    const payload = { u: cfg.supabase_url, k: cfg.supabase_anon_key, t: cfg.team_name || '', c: cfg.primary_color || '#c0392b' };
+    return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  }
+
+  function getBaseUrl() {
+    const saved = localStorage.getItem(STORAGE_APP_URL_KEY) || '';
+    if (saved) return saved;
+    return (location.protocol === 'file:' || location.origin === 'null')
+      ? '' : location.origin + location.pathname;
+  }
+
+  // ─── Supabase ─────────────────────────────────────────────────────────────
+  function initSupabase() {
+    if (!SUPABASE_CONFIG.url || !SUPABASE_CONFIG.anonKey) return false;
+    supabaseClient = supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+    return true;
+  }
+
+  // ─── 選手名マップ ─────────────────────────────────────────────────────────
+  async function loadPlayersMap() {
+    if (!supabaseClient) return;
+    try {
+      const { data } = await supabaseClient
+        .from(TABLE_PLAYERS)
+        .select('payload')
+        .eq('type', 'player');
+      if (data) {
+        playersMap = {};
+        data.forEach(row => {
+          const p = row.payload || {};
+          if (p.number) playersMap[String(p.number).trim()] = p.name || '';
+        });
+      }
+    } catch(e) { console.warn('選手データ取得失敗:', e); }
+  }
+
+  function getPlayerName(jerseyNumber) {
+    return playersMap[String(jerseyNumber).trim()] || '';
+  }
+
+  // ─── 選手管理 ─────────────────────────────────────────────────────────────
+  let playerRecords = [];
+  let playerAccordionState = { section: null };
+  let playerToDelete = null;
+
+  function showAdminTab(tab) {
+    const isEvents = tab === 'events';
+    document.getElementById('admin-events-section').classList.toggle('hidden', !isEvents);
+    document.getElementById('admin-players-section').classList.toggle('hidden', isEvents);
+    document.getElementById('create-event-btn').classList.toggle('hidden', !isEvents);
+    document.getElementById('add-player-btn').classList.toggle('hidden', isEvents);
+    document.getElementById('tab-events-btn').className  = `flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${isEvents  ? 'bg-red-500 text-white' : 'text-gray-500 hover:text-gray-700'}`;
+    document.getElementById('tab-players-btn').className = `flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${!isEvents ? 'bg-red-500 text-white' : 'text-gray-500 hover:text-gray-700'}`;
+    if (!isEvents) loadPlayers();
+  }
+
+  async function loadPlayers() {
+    if (!supabaseClient) return;
+    const { data, error } = await supabaseClient
+      .from(TABLE_PLAYERS).select('id, payload, created_at').eq('type', 'player');
+    if (error) { console.error('loadPlayers:', error); return; }
+    playerRecords = data || [];
+    // playersMap も更新
+    playersMap = {};
+    playerRecords.forEach(p => {
+      if (p.payload?.number) playersMap[String(p.payload.number).trim()] = p.payload.name || '';
+    });
+    updatePlayerCategoryStats();
+    renderPlayerList();
+  }
+
+  function updatePlayerCategoryStats() {
+    const tbody = document.getElementById('player-category-stats');
+    if (!tbody) return;
+    const counts = Object.fromEntries(CATEGORY_ORDER.map(cat => [cat, 0]));
+    playerRecords.forEach(p => {
+      const cat = playerCurrentCategory(p);
+      if (cat && counts[cat] !== undefined) counts[cat]++;
+    });
+    const total = Object.values(counts).reduce((s, v) => s + v, 0);
+    tbody.innerHTML = `<tr class="border-b border-gray-200 text-center">
+      ${CATEGORY_ORDER.map(cat => `<td class="px-0 py-4 font-black text-gray-800">${counts[cat]}</td>`).join('')}
+      <td class="px-0 py-4 font-black text-gray-800 border-l-2 border-gray-300">${total}</td>
+    </tr>`;
+  }
+
+  function renderPlayerList() {
+    const listEl  = document.getElementById('player-list');
+    const emptyEl = document.getElementById('player-empty-state');
+    if (!listEl) return;
+    if (playerRecords.length === 0) {
+      listEl.innerHTML = '';
+      emptyEl?.classList.remove('hidden');
+      return;
+    }
+    emptyEl?.classList.add('hidden');
+
+    const grouped = Object.fromEntries(CATEGORY_ORDER.map(cat => [cat, []]));
+    const uncategorized = [];
+    playerRecords.forEach(p => {
+      const cat = playerCurrentCategory(p);
+      if (cat && grouped[cat] !== undefined) grouped[cat].push(p);
+      else uncategorized.push(p);
+    });
+
+    listEl.innerHTML = '';
+
+    const renderSection = (label, list) => {
+      const section = document.createElement('div');
+      section.className = 'space-y-2';
+      const header = document.createElement('button');
+      const body   = document.createElement('div');
+      const isOpen = playerAccordionState.section === label;
+      body.className = `pl-3 space-y-2${isOpen ? '' : ' hidden'}`;
+      header.className = 'w-full text-left bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-3 rounded-lg font-semibold flex items-center justify-between';
+      header.innerHTML = `<span>${label}（${list.length}人）</span><span>▶</span>`;
+      header.addEventListener('click', () => {
+        const willOpen = body.classList.contains('hidden');
+        playerAccordionState.section = willOpen ? label : null;
+        renderPlayerList();
+      });
+      list.sort((a, b) => Number(a.payload?.number || 0) - Number(b.payload?.number || 0))
+        .forEach(p => {
+          const card = document.createElement('div');
+          card.className = 'bg-white rounded-xl shadow p-4 cursor-pointer hover:bg-gray-50 transition-colors';
+          card.innerHTML = `<div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center justify-center min-w-[48px] px-2 py-1 rounded-lg bg-red-600 text-white text-sm font-black shadow">#${escHtml(p.payload?.number || '')}</span>
+              <span class="font-bold text-gray-800">${escHtml(p.payload?.name || '')}</span>
+            </div>
+            <div class="flex gap-2">
+              <button type="button" class="edit-btn bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium px-3 py-2 rounded-lg transition-colors">編集</button>
+              <button type="button" class="del-btn bg-red-500 hover:bg-red-600 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors">削除</button>
+            </div>
+          </div>`;
+          card.querySelector('.edit-btn').addEventListener('click', (e) => { e.stopPropagation(); openPlayerModal(p.id); });
+          card.querySelector('.del-btn').addEventListener('click',  (e) => { e.stopPropagation(); openDeletePlayerModal(p); });
+          body.appendChild(card);
+        });
+      section.appendChild(header);
+      section.appendChild(body);
+      listEl.appendChild(section);
+    };
+
+    CATEGORY_ORDER.forEach(cat => renderSection(cat, grouped[cat]));
+    if (uncategorized.length > 0) renderSection('未設定', uncategorized);
+  }
+
+  function openPlayerModal(id) {
+    document.getElementById('player-modal-error').classList.add('hidden');
+    if (id) {
+      const rec = playerRecords.find(p => p.id === id);
+      if (!rec) return;
+      document.getElementById('player-modal-title').textContent = '選手を編集';
+      document.getElementById('player-save-label').textContent  = '保存する';
+      document.getElementById('player-edit-id').value    = id;
+      document.getElementById('player-number').value     = rec.payload?.number   || '';
+      document.getElementById('player-name').value       = rec.payload?.name     || '';
+      document.getElementById('player-category').value   = rec.payload?.category || '';
+    } else {
+      document.getElementById('player-modal-title').textContent = '選手を追加';
+      document.getElementById('player-save-label').textContent  = '選手を登録';
+      document.getElementById('player-edit-id').value  = '';
+      document.getElementById('player-number').value   = '';
+      document.getElementById('player-name').value     = '';
+      document.getElementById('player-category').value = '';
+    }
+    document.getElementById('player-modal').classList.remove('hidden');
+  }
+
+  function closePlayerModal() {
+    document.getElementById('player-modal').classList.add('hidden');
+  }
+
+  async function savePlayer() {
+    const id       = document.getElementById('player-edit-id').value;
+    const number   = document.getElementById('player-number').value.trim();
+    const name     = document.getElementById('player-name').value.trim();
+    const category = document.getElementById('player-category').value;
+    const errEl    = document.getElementById('player-modal-error');
+    errEl.classList.add('hidden');
+    if (!number) { errEl.textContent = '背番号を入力してください'; errEl.classList.remove('hidden'); return; }
+    if (!name)   { errEl.textContent = '選手名を入力してください'; errEl.classList.remove('hidden'); return; }
+    const payload = { number, name, category };
+    document.getElementById('player-save-label').textContent = '保存中...';
+    try {
+      if (id) {
+        const { error } = await supabaseClient.from(TABLE_PLAYERS).update({ payload }).eq('id', id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabaseClient.from(TABLE_PLAYERS).insert({ type: 'player', payload });
+        if (error) throw error;
+      }
+      closePlayerModal();
+      await loadPlayers();
+    } catch(e) {
+      errEl.textContent = '保存に失敗しました: ' + (e.message || e);
+      errEl.classList.remove('hidden');
+    } finally {
+      document.getElementById('player-save-label').textContent = id ? '保存する' : '選手を登録';
+    }
+  }
+
+  function openDeletePlayerModal(p) {
+    playerToDelete = p;
+    document.getElementById('player-delete-modal').classList.remove('hidden');
+  }
+
+  function closeDeletePlayerModal() {
+    playerToDelete = null;
+    document.getElementById('player-delete-modal').classList.add('hidden');
+  }
+
+  async function handleDeletePlayer() {
+    if (!playerToDelete) return;
+    const textEl    = document.getElementById('player-delete-text');
+    const loadingEl = document.getElementById('player-delete-loading');
+    textEl.classList.add('hidden');
+    loadingEl.classList.remove('hidden');
+    const { error } = await supabaseClient.from(TABLE_PLAYERS).delete().eq('id', playerToDelete.id);
+    textEl.classList.remove('hidden');
+    loadingEl.classList.add('hidden');
+    if (error) { alert('削除に失敗しました'); return; }
+    closeDeletePlayerModal();
+    await loadPlayers();
+  }
+
+  // ─── モード制限適用 ──────────────────────────────────────────────────
+  function applyModeRestrictions() {
+    const badge = document.getElementById('mode-badge');
+    if (badge) {
+      if (isSetupMode)  { badge.textContent = 'Setup';  badge.style.cssText = 'background:rgba(255,255,255,0.25);color:#fff'; }
+      if (isCoachMode)  { badge.textContent = 'Coach';  badge.style.cssText = 'background:rgba(59,130,246,0.7);color:#fff'; }
+      if (isFamilyMode) { badge.textContent = 'Family'; badge.style.cssText = 'background:rgba(16,185,129,0.7);color:#fff'; }
+    }
+    // コーチモード：セットアップ専用メニューを非表示
+    if (isCoachMode) {
+      document.querySelector('#settings-menu [onclick="openTeamManager()"]')?.classList.add('hidden');
+      document.getElementById('open-setup-menu-btn')?.classList.add('hidden');
+      document.querySelector('#settings-menu [onclick="openAdminLinkModal()"]')?.classList.add('hidden');
+    }
+    // ファミリーモード：設定ボタン・選手管理タブ・選手登録ボタンを非表示
+    if (isFamilyMode) {
+      document.getElementById('settings-btn')?.classList.add('hidden');
+      document.getElementById('tab-players-btn')?.classList.add('hidden');
+      document.getElementById('add-player-btn')?.classList.add('hidden');
+    }
+  }
+
+  // ─── 1年以上前のイベント自動削除（管理者のみ） ──────────────────────
+  async function cleanupOldEvents() {
+    if (!supabaseClient || isParentMode) return;
+    try {
+      const cutoff = new Date();
+      cutoff.setFullYear(cutoff.getFullYear() - 1);
+      const cutoffStr = cutoff.toISOString().slice(0, 10);
+      const { data: oldEvs } = await supabaseClient
+        .from(TABLE_EVENTS).select('id').lt('event_date', cutoffStr);
+      if (oldEvs && oldEvs.length > 0) {
+        const ids = oldEvs.map(e => e.id);
+        await supabaseClient.from(TABLE_RESPONSES).delete().in('event_id', ids);
+        await supabaseClient.from(TABLE_EVENTS).delete().lt('event_date', cutoffStr);
+      }
+    } catch(e) { console.error('cleanup error:', e); }
+  }
+
+  // ─── 管理者：イベント一覧 ─────────────────────────────────────────────────
+  async function loadEvents() {
+    if (!isParentMode) await cleanupOldEvents();
+    const { data, error } = await supabaseClient
+      .from(TABLE_EVENTS)
+      .select(`*, ${TABLE_RESPONSES}(count)`)
+      .order('event_date', { ascending: false });
+    if (error) { console.error('loadEvents:', error); return; }
+    events = data || [];
+    renderEvents();
+  }
+
+  // カテゴリー別にグループ化（CATEGORY_ORDER 全カテゴリー常に表示 → その他 → 未設定）
+  function groupByCategory(evList) {
+    const groups = Object.fromEntries(CATEGORY_ORDER.map(cat => [cat, []]));
+    const extra = {};
+    evList.forEach(ev => {
+      const cat = ev.category?.trim() || '未設定';
+      if (groups[cat] !== undefined) groups[cat].push(ev);
+      else { if (!extra[cat]) extra[cat] = []; extra[cat].push(ev); }
+    });
+    const unknown = Object.keys(extra).filter(k => k !== '未設定').sort();
+    const nocat   = extra['未設定'] ? ['未設定'] : [];
+    return [
+      ...CATEGORY_ORDER.map(key => ({ key, evs: groups[key] })),
+      ...unknown.map(key => ({ key, evs: extra[key] })),
+      ...nocat.map(key => ({ key, evs: extra[key] }))
+    ];
+  }
+
+  function toggleCategorySection(safeKey) {
+    const body = document.getElementById('cat-body-' + safeKey);
+    const icon = document.getElementById('cat-icon-' + safeKey);
+    if (!body) return;
+    const isHidden = body.classList.toggle('hidden');
+    if (icon) icon.textContent = isHidden ? '▶' : '▼';
+  }
+
+  function safeKey(cat) { return cat.replace(/[^a-zA-Z0-9]/g, '_'); }
+
+  function buildAdminEventCard(ev) {
+    const count   = ev[TABLE_RESPONSES]?.[0]?.count ?? 0;
+    const dateStr = formatDate(ev.event_date);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const isPast = ev.event_date < todayStr;
+    const daysLeft = isPast
+      ? 7 - Math.floor((new Date(todayStr) - new Date(ev.event_date + 'T00:00:00')) / 86400000)
+      : null;
+    const deleteBadge = isPast
+      ? `<span class="text-xs font-bold bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full ml-1">⏰ ${daysLeft}日後に自動削除</span>`
+      : '';
+    const countBadge = count > 0
+      ? `<span class="text-xs font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full ml-1">📊 ${count}件</span>`
+      : '';
+    const color    = catColor(ev.category);
+    const catTitle = ev.category
+      ? `<span class="font-black" style="color:${color}">${escHtml(ev.category)}</span><span class="text-gray-300 mx-1">/</span><span class="font-black text-gray-800">${escHtml(ev.title)}</span>`
+      : `<span class="font-black text-gray-800">${escHtml(ev.title)}</span>`;
+    return `<div class="bg-white rounded-2xl shadow overflow-hidden flex cursor-pointer hover:shadow-md active:opacity-80 transition-shadow${isPast ? ' opacity-70' : ''}" data-event-id="${ev.id}" onclick="openAttCardDetail('${ev.id}')">
+      <div class="w-1.5 shrink-0" style="background:${color}"></div>
+      <div class="px-4 py-3 flex-1 min-w-0">
+        <p class="font-black text-gray-800 mb-1">${catTitle}${deleteBadge}${countBadge}</p>
+        <div class="text-xs text-gray-500" style="display:inline-grid;grid-template-columns:auto auto;gap:2px 12px">
+          <div>${dateStr       ? `📆 ${escHtml(dateStr)}`        : ''}</div>
+          <div>${ev.location   ? `📍 ${escHtml(ev.location)}`    : ''}</div>
+          <div>${ev.event_time ? `🕐 ${escHtml(ev.event_time)}`  : ''}</div>
+          <div>${ev.transport  ? `🚗 ${escHtml(ev.transport)}`   : ''}</div>
+        </div>
+        ${ev.memo ? `<div class="mt-1.5 bg-amber-50 rounded-xl px-2.5 py-1.5 text-amber-700 text-xs">📝 ${escHtml(ev.memo)}</div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  function buildParentEventCard(ev) {
+    const count    = ev[TABLE_RESPONSES]?.[0]?.count ?? 0;
+    const dateStr  = formatDate(ev.event_date);
+    const color    = catColor(ev.category);
+    const countBadge = count > 0
+      ? `<span class="text-xs font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full ml-1">📊 ${count}件</span>`
+      : '';
+    const catTitle = ev.category
+      ? `<span class="font-black" style="color:${color}">${escHtml(ev.category)}</span><span class="text-gray-300 mx-1">/</span><span class="font-black text-gray-800">${escHtml(ev.title)}</span>`
+      : `<span class="font-black text-gray-800">${escHtml(ev.title)}</span>`;
+    return `<div class="bg-white rounded-2xl shadow overflow-hidden flex cursor-pointer hover:shadow-md active:opacity-80 transition-shadow" onclick="openAttCardDetail('${ev.id}')">
+      <div class="w-1.5 shrink-0" style="background:${color}"></div>
+      <div class="px-4 py-3 flex-1 min-w-0">
+        <p class="font-black text-gray-800 mb-1">${catTitle}${countBadge}</p>
+        <div class="text-xs text-gray-500" style="display:inline-grid;grid-template-columns:auto auto;gap:2px 12px">
+          <div>${dateStr       ? `📆 ${escHtml(dateStr)}`        : ''}</div>
+          <div>${ev.location   ? `📍 ${escHtml(ev.location)}`    : ''}</div>
+          <div>${ev.event_time ? `🕐 ${escHtml(ev.event_time)}`  : ''}</div>
+          <div>${ev.transport  ? `🚗 ${escHtml(ev.transport)}`   : ''}</div>
+        </div>
+        ${ev.memo ? `<div class="mt-1.5 bg-amber-50 rounded-xl px-2.5 py-1.5 text-amber-700 text-xs">📝 ${escHtml(ev.memo)}</div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  function buildCategoryGroupHtml(groups, cardFn) {
+    return groups.map(({ key, evs }) => {
+      const sk = safeKey(key);
+      return `<div class="mb-3">
+        <button onclick="toggleCategorySection('${sk}')"
+          class="w-full text-left bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-3 rounded-xl font-bold border border-gray-200 transition-colors flex items-center justify-between">
+          <span>⚽ ${escHtml(key)}（${evs.length}件）</span>
+          <span id="cat-icon-${sk}" class="text-gray-500 text-sm">▶</span>
+        </button>
+        <div id="cat-body-${sk}" class="pt-2 space-y-3 hidden">
+          ${evs.map(cardFn).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ─── カテゴリーフィルター描画（管理者・保護者共通、prefix='admin'|'parent'） ────────
+  function buildCategoryTabsHtml(groups, cardFn, prefix = 'admin') {
+    const lsKey    = prefix === 'parent' ? 'att_parent_selected_cats' : 'att_selected_cats';
+    const selected = prefix === 'parent' ? attParentSelectedCategories : attSelectedCategories;
+    const allEvs   = groups.flatMap(g => g.evs);
+    const catKeys  = groups.map(g => g.key);
+    const hasFilter = selected.length > 0;
+
+    const allBtn = `<button onclick="toggleAttCategoryFilter(null,'${prefix}')"
+      class="flex-1 flex flex-col items-center py-1 rounded-lg transition-all
+        ${!hasFilter ? 'bg-gray-800 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-50'}">
+      <span class="text-[11px] font-bold leading-tight">全て</span>
+      <span class="h-1 w-4/5 rounded-full mt-0.5" style="background:${!hasFilter ? '#fff' : '#d1d5db'}"></span>
+    </button>`;
+
+    const catBtns = catKeys.map(cat => {
+      const isSelected = selected.includes(cat);
+      const color = catColor(cat);
+      if (isSelected) {
+        return `<button onclick="toggleAttCategoryFilter('${cat}','${prefix}')"
+          class="flex-1 flex flex-col items-center py-1 rounded-lg shadow-sm transition-all text-white"
+          style="background:${color}">
+          <span class="text-[11px] font-black leading-tight whitespace-nowrap">${escHtml(cat)}</span>
+          <span class="h-1 w-4/5 rounded-full mt-0.5 bg-white/50"></span>
+        </button>`;
+      } else {
+        return `<button onclick="toggleAttCategoryFilter('${cat}','${prefix}')"
+          class="flex-1 flex flex-col items-center py-1 rounded-lg transition-all
+            ${hasFilter ? 'text-gray-300 hover:text-gray-500' : 'text-gray-700 hover:bg-gray-50'}">
+          <span class="text-[11px] font-bold leading-tight whitespace-nowrap">${escHtml(cat)}</span>
+          <span class="h-1 w-4/5 rounded-full mt-0.5" style="background:${hasFilter ? '#e5e7eb' : color}"></span>
+        </button>`;
+      }
+    }).join('');
+
+    const tabBar = `
+      <div class="bg-white rounded-2xl shadow border border-gray-200 px-3 py-2 mb-3">
+        <div class="flex gap-1">${allBtn}${catBtns}</div>
+      </div>`;
+
+    const filteredEvs = hasFilter ? allEvs.filter(ev => selected.includes(ev.category)) : allEvs;
+    const evList = filteredEvs.length > 0
+      ? `<div class="space-y-2">${filteredEvs.map(cardFn).join('')}</div>`
+      : `<div class="text-center py-10 bg-white rounded-xl shadow border border-gray-100">
+           <p class="text-3xl mb-2">📋</p>
+           <p class="text-sm text-gray-400">${hasFilter ? selected.join('・') + ' のイベントはありません' : 'イベントはありません'}</p>
+         </div>`;
+
+    return tabBar + evList;
+  }
+
+  function toggleAttCategoryFilter(cat, prefix = 'admin') {
+    const lsKey = prefix === 'parent' ? 'att_parent_selected_cats' : 'att_selected_cats';
+    let selected = prefix === 'parent' ? attParentSelectedCategories : attSelectedCategories;
+    if (cat === null) {
+      selected = [];
+    } else {
+      const idx = selected.indexOf(cat);
+      if (idx >= 0) selected.splice(idx, 1);
+      else selected.push(cat);
+    }
+    if (prefix === 'parent') attParentSelectedCategories = selected;
+    else                     attSelectedCategories       = selected;
+    try {
+      if (selected.length > 0) localStorage.setItem(lsKey, JSON.stringify(selected));
+      else localStorage.removeItem(lsKey);
+    } catch(e) {}
+    if (prefix === 'parent') {
+      const listEl = document.getElementById('parent-event-list');
+      if (listEl) {
+        const groups = groupByCategory(window._parentEvents || []);
+        listEl.innerHTML = buildCategoryTabsHtml(groups, buildParentEventCard, 'parent');
+      }
+    } else {
+      renderEvents();
+    }
+  }
+
+  function renderEvents() {
+    const el = document.getElementById('event-list');
+    const groups = groupByCategory(events);
+    el.innerHTML = buildCategoryTabsHtml(groups, buildAdminEventCard, 'admin');
+  }
+
+  // ─── URL短縮（TinyURL優先・is.gdフォールバック） ───────────────────────────
+  async function shortenUrl(url) {
+    // TinyURL（CORS対応・無料）
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 6000);
+      const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`, { signal: ctrl.signal });
+      clearTimeout(t);
+      const text = await res.text();
+      if (text.startsWith('https://tinyurl.com/')) return text.trim();
+    } catch(e) {}
+    // is.gd（フォールバック）
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 6000);
+      const res = await fetch(`https://is.gd/create.php?format=simple&url=${encodeURIComponent(url)}`, { signal: ctrl.signal });
+      clearTimeout(t);
+      const text = await res.text();
+      if (text.startsWith('https://is.gd/')) return text.trim();
+    } catch(e) {}
+    return null;
+  }
+
+  // ─── コーチリンク発行 ─────────────────────────────────────────────────────
+  function openAdminLinkModal() {
+    document.getElementById('settings-menu')?.classList.add('hidden');
+    const modal = document.getElementById('admin-link-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    const base = getBaseUrl();
+    const input = document.getElementById('admin-link-base-url');
+    if (input) { input.value = base; updateAdminLink(); }
+  }
+
+  function closeAdminLinkModal() {
+    document.getElementById('admin-link-modal')?.classList.add('hidden');
+  }
+
+  function updateAdminLink() {
+    const base = document.getElementById('admin-link-base-url')?.value.trim();
+    const result = document.getElementById('admin-link-result');
+    if (!base) { result?.classList.add('hidden'); return; }
+    try { localStorage.setItem(STORAGE_APP_URL_KEY, base); } catch(e) {}
+    const cfg = loadConfig();
+    if (!cfg?.supabase_url || !cfg?.supabase_anon_key) { result?.classList.add('hidden'); return; }
+    const hash = buildHashString(cfg);
+    const url = base.replace(/\/?$/, '') + '#' + hash;
+    const linkInput = document.getElementById('admin-link-url');
+    if (linkInput) linkInput.value = url;
+    result?.classList.remove('hidden');
+    document.getElementById('admin-link-copy-msg')?.classList.add('hidden');
+  }
+
+  async function copyAdminLink() {
+    const url = document.getElementById('admin-link-url')?.value;
+    if (!url) return;
+    const msg = document.getElementById('admin-link-copy-msg');
+    if (msg) { msg.textContent = '🔄 短縮URL生成中...'; msg.classList.remove('hidden'); }
+    const short = await shortenUrl(url);
+    const finalUrl = short || url;
+    try {
+      await navigator.clipboard.writeText(finalUrl);
+    } catch(e) {
+      document.getElementById('admin-link-url')?.select();
+    }
+    if (msg) {
+      msg.textContent = short ? `✅ 短縮URLをコピー: ${short}` : '✅ クリップボードにコピーしました';
+      msg.classList.remove('hidden');
+      setTimeout(() => msg.classList.add('hidden'), 3000);
+    }
+  }
+
+  // ─── 管理者：イベント個別リンクコピー ────────────────────────────────────
+  async function copyEventShareLink(eventId) {
+    const cfg = loadConfig();
+    if (!cfg?.supabase_url) { alert('設定が見つかりません'); return; }
+    const hash = buildHashString(cfg);
+    const fullUrl = `${getBaseUrl()}?respond=${eventId}#${hash}`;
+
+    const btn = document.querySelector('[onclick="attCardCopyLink()"]');
+    const setBtn = t => { if (btn) btn.innerHTML = t; };
+
+    setBtn('🔄 短縮URL生成中...');
+    const short = await shortenUrl(fullUrl);
+    const finalUrl = short || fullUrl;
+
+    try {
+      await navigator.clipboard.writeText(finalUrl);
+      setBtn(short ? '✅ 短縮URLをコピー' : '✅ コピーしました');
+      setTimeout(() => setBtn('🔗 リンクをコピー'), 2500);
+    } catch(e) {
+      prompt('以下のリンクをコピーしてください', finalUrl);
+      setBtn('🔗 リンクをコピー');
+    }
+  }
+
+  function showCardMsg(eventId, msg) {
+    const id = `card-msg-${eventId}`;
+    let el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement('p');
+      el.id = id;
+      el.className = 'text-xs text-green-600 font-medium text-center mt-1';
+      const card = document.querySelector(`[data-event-id="${eventId}"]`);
+      if (card) card.appendChild(el);
+    }
+    el.textContent = msg;
+    setTimeout(() => { el.textContent = ''; }, 2500);
+  }
+
+  // ─── 管理者：イベント削除（カードから直接） ───────────────────────────────
+  async function deleteEventById(eventId) {
+    if (!confirm('このイベントと全ての回答を削除しますか？\nこの操作は取り消せません。')) return;
+    const { error } = await supabaseClient.from(TABLE_EVENTS).delete().eq('id', eventId);
+    if (error) { alert('削除に失敗しました: ' + error.message); return; }
+    await loadEvents();
+  }
+
+  // ─── ファミリーリンク発行 ─────────────────────────────────────────────────────
+  function openParentLinkModal() {
+    document.getElementById('settings-menu')?.classList.add('hidden');
+    const modal = document.getElementById('parent-link-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    const base = getBaseUrl();
+    const input = document.getElementById('parent-link-base-url');
+    if (input) { input.value = base; updateParentLink(); }
+  }
+
+  function closeParentLinkModal() {
+    document.getElementById('parent-link-modal')?.classList.add('hidden');
+  }
+
+  function updateParentLink() {
+    const base   = document.getElementById('parent-link-base-url')?.value.trim();
+    const result = document.getElementById('parent-link-result');
+    if (!base) { result?.classList.add('hidden'); return; }
+    try { localStorage.setItem(STORAGE_APP_URL_KEY, base); } catch(e) {}
+    const cfg = loadConfig();
+    if (!cfg?.supabase_url || !cfg?.supabase_anon_key) { result?.classList.add('hidden'); return; }
+    const hash = buildHashString(cfg);
+    const url  = base.replace(/\/?$/, '') + '?view=parent#' + hash;
+    const linkInput = document.getElementById('parent-link-url');
+    if (linkInput) linkInput.value = url;
+    result?.classList.remove('hidden');
+    document.getElementById('parent-link-copy-msg')?.classList.add('hidden');
+  }
+
+  async function copyParentLink() {
+    const url = document.getElementById('parent-link-url')?.value;
+    if (!url) return;
+    const msg = document.getElementById('parent-link-copy-msg');
+    if (msg) { msg.textContent = '🔄 短縮URL生成中...'; msg.classList.remove('hidden'); }
+    const short = await shortenUrl(url);
+    const finalUrl = short || url;
+    try {
+      await navigator.clipboard.writeText(finalUrl);
+    } catch(e) {
+      document.getElementById('parent-link-url')?.select();
+    }
+    if (msg) {
+      msg.textContent = short ? `✅ 短縮URLをコピー: ${short}` : '✅ クリップボードにコピーしました';
+      msg.classList.remove('hidden');
+      setTimeout(() => msg.classList.add('hidden'), 3000);
+    }
+  }
+
+  // ─── 管理者：イベント作成 / 編集 ─────────────────────────────────────────
+  function openCreateEventModal(eventId = null) {
+    document.getElementById('edit-event-id').value = eventId || '';
+    document.getElementById('create-modal-title').textContent = eventId ? '⚽ イベントを編集' : '⚽ イベントを作成';
+    document.getElementById('create-event-status').classList.add('hidden');
+
+    if (eventId) {
+      const ev = events.find(e => e.id === eventId);
+      if (ev) {
+        document.getElementById('ev-title').value     = ev.title || '';
+        document.getElementById('ev-date').value      = ev.event_date || '';
+        document.getElementById('ev-time').value      = ev.event_time || '';
+        document.getElementById('ev-category').value  = ev.category || '';
+        document.getElementById('ev-transport').value = ev.transport || '';
+        document.getElementById('ev-location').value  = ev.location || '';
+        document.getElementById('ev-memo').value      = ev.memo || '';
+      }
+    } else {
+      ['ev-title','ev-date','ev-time','ev-transport','ev-location','ev-memo'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      document.getElementById('ev-category').value = '';
+    }
+    document.getElementById('create-event-modal').classList.remove('hidden');
+  }
+
+  function closeCreateEventModal() {
+    document.getElementById('create-event-modal').classList.add('hidden');
+  }
+
+  // ─── お知らせ：カテゴリーカラー整形 ──────────────────────────────────────
+  function formatNotifMessage(msg) {
+    const m = msg.match(/^【([^】]+)】「([^」]+)」(.*)$/);
+    if (m) {
+      const color = catColor(m[1]);
+      return `<span class="font-black" style="color:${color}">${escHtml(m[1])}</span><span class="text-gray-300 mx-1">/</span><span class="font-black text-gray-800">${escHtml(m[2])}</span>${escHtml(m[3])}`;
+    }
+    const m2 = msg.match(/^「([^」]+)」(.*)$/);
+    if (m2) return `<span class="font-black text-gray-800">${escHtml(m2[1])}</span>${escHtml(m2[2])}`;
+    return escHtml(msg);
+  }
+
+  // ─── お知らせポップアップ ─────────────────────────────────────────────
+  async function checkAndShowNotifications() {
+    if (!supabaseClient) return;
+    try {
+      const lastSeen = localStorage.getItem(NOTIF_LAST_SEEN_KEY) || '1970-01-01T00:00:00.000Z';
+      const { data, error } = await supabaseClient
+        .from(TABLE_NOTIFICATIONS)
+        .select('id, message, created_at')
+        .gt('created_at', lastSeen)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (error || !data || data.length === 0) return;
+      const list = document.getElementById('notif-popup-list');
+      if (!list) return;
+      list.innerHTML = data.map(n => {
+        const dt = new Date(n.created_at).toLocaleString('ja-JP', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
+        return `<li class="flex items-start gap-2 py-2 border-b border-gray-100 last:border-0">
+          <span class="text-lg leading-none mt-0.5">📢</span>
+          <div>
+            <p class="text-sm text-gray-800">${formatNotifMessage(n.message)}</p>
+            <p class="text-xs text-gray-400 mt-0.5">${dt}</p>
+          </div>
+        </li>`;
+      }).join('');
+      document.getElementById('notif-popup').classList.remove('hidden');
+    } catch(e) { console.warn('通知取得エラー:', e); }
+  }
+
+  function closeNotificationPopup() {
+    document.getElementById('notif-popup').classList.add('hidden');
+    localStorage.setItem(NOTIF_LAST_SEEN_KEY, new Date().toISOString());
+  }
+
+  // ─── 常設お知らせパネル ───────────────────────────────────────────────────
+  // 管理者・保護者で別キーを使い、同一デバイスでも互いに影響しない
+  const NOTIF_DISMISSED_ADMIN_KEY  = 'att_notif_dismissed_admin_v1';
+  const NOTIF_DISMISSED_PARENT_KEY = 'att_notif_dismissed_parent_v1';
+
+  let _notifIsAdmin = false;
+
+  function _dismissedKey() {
+    return _notifIsAdmin ? NOTIF_DISMISSED_ADMIN_KEY : NOTIF_DISMISSED_PARENT_KEY;
+  }
+  function getDismissedIds() {
+    try { return JSON.parse(localStorage.getItem(_dismissedKey()) || '[]'); } catch(e) { return []; }
+  }
+  function saveDismissedId(id) {
+    try {
+      const ids = getDismissedIds();
+      if (!ids.includes(id)) ids.push(id);
+      localStorage.setItem(_dismissedKey(), JSON.stringify(ids));
+    } catch(e) {}
+  }
+  function cleanupDismissedIds(existingIds) {
+    try {
+      const key = _dismissedKey();
+      const ids = JSON.parse(localStorage.getItem(key) || '[]').filter(id => existingIds.includes(id));
+      localStorage.setItem(key, JSON.stringify(ids));
+    } catch(e) {}
+  }
+
+  async function renderNotificationsPanel(isAdmin = false) {
+    _notifIsAdmin = isAdmin;
+    const panels = document.querySelectorAll('.notifications-panel-list');
+    if (!panels.length || !supabaseClient) return;
+    try {
+      const { data, error } = await supabaseClient
+        .from(TABLE_NOTIFICATIONS)
+        .select('id, message, created_at')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error || !data) {
+        panels.forEach(el => { el.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">お知らせはありません</p>'; });
+        return;
+      }
+
+      // 不要なIDをlocalStorageから掃除
+      cleanupDismissedIds(data.map(n => n.id));
+
+      // 確認済みを除外（管理者・保護者それぞれのキーで独立管理）
+      const dismissed = getDismissedIds();
+      const visible = data.filter(n => !dismissed.includes(n.id));
+
+      const html = visible.length === 0
+        ? '<p class="text-gray-400 text-sm text-center py-4">お知らせはありません</p>'
+        : visible.map(n =>
+            `<div class="flex items-center gap-2 py-2.5 border-b border-gray-100 last:border-0" id="notif-row-${n.id}">
+              <div class="flex-1 min-w-0">
+                <p class="text-sm text-gray-800 leading-snug">${formatNotifMessage(n.message)}</p>
+              </div>
+              <button type="button" onclick="dismissNotification('${n.id}')"
+                class="shrink-0 text-gray-300 hover:text-gray-500 text-base leading-none px-1 transition-colors"
+                title="削除">🗑️</button>
+            </div>`
+          ).join('');
+
+      panels.forEach(el => { el.innerHTML = html; });
+    } catch(e) { console.warn('お知らせ描画エラー:', e); }
+  }
+
+  function dismissNotification(id) {
+    saveDismissedId(id);
+    document.querySelectorAll(`#notif-row-${id}`).forEach(el => el.remove());
+    document.querySelectorAll('.notifications-panel-list').forEach(panel => {
+      if (!panel.querySelector('[id^="notif-row-"]')) {
+        panel.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">お知らせはありません</p>';
+      }
+    });
+  }
+
+  // ─── イベント自動削除（イベント日から7日後）＆お知らせ削除（イベント日翌日） ───
+  async function autoCleanupEvents() {
+    if (!supabaseClient) return;
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+
+      // ① イベント日が過ぎたお知らせを完全削除（event_id経由）
+      const { data: pastEvents } = await supabaseClient
+        .from(TABLE_EVENTS).select('id').lt('event_date', today);
+      if (pastEvents && pastEvents.length > 0) {
+        const pastIds = pastEvents.map(e => e.id);
+        await supabaseClient.from(TABLE_NOTIFICATIONS).delete().in('event_id', pastIds).catch(() => {});
+      }
+
+      // ② イベント日から7日後のイベント・出欠データを完全削除
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 7);
+      const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+      const { data: oldEvents } = await supabaseClient
+        .from(TABLE_EVENTS).select('id').lte('event_date', cutoffStr);
+      if (!oldEvents || oldEvents.length === 0) return;
+
+      const ids = oldEvents.map(e => e.id);
+      await supabaseClient.from(TABLE_RESPONSES).delete().in('event_id', ids);
+      await supabaseClient.from(TABLE_EVENTS).delete().in('id', ids);
+      console.log(`自動削除: ${ids.length}件のイベントを削除しました`);
+    } catch(e) { console.warn('自動削除エラー:', e); }
+  }
+
+  async function saveEvent() {
+    const btn      = document.getElementById('save-event-btn');
+    const txt      = document.getElementById('save-event-text');
+    const load     = document.getElementById('save-event-loading');
+    const statusEl = document.getElementById('create-event-status');
+    const editId   = document.getElementById('edit-event-id').value;
+
+    const title = document.getElementById('ev-title').value.trim();
+    const date  = document.getElementById('ev-date').value;
+    if (!title) { setStatus(statusEl, 'タイトルを入力してください', 'error'); return; }
+    if (!date)  { setStatus(statusEl, '日付を入力してください', 'error'); return; }
+
+    if (btn)  btn.disabled = true;
+    if (txt)  txt.classList.add('hidden');
+    if (load) load.classList.remove('hidden');
+
+    try {
+      const payload = {
+        title,
+        event_date: date,
+        event_time: document.getElementById('ev-time').value.trim()      || null,
+        category:   document.getElementById('ev-category').value          || null,
+        transport:  document.getElementById('ev-transport').value.trim()  || null,
+        location:   document.getElementById('ev-location').value.trim()   || null,
+        memo:       document.getElementById('ev-memo').value.trim()       || null,
+      };
+
+      const { error: saveError } = editId
+        ? await supabaseClient.from(TABLE_EVENTS).update(payload).eq('id', editId)
+        : await supabaseClient.from(TABLE_EVENTS).insert(payload);
+
+      if (saveError) {
+        setStatus(statusEl, '保存に失敗しました: ' + saveError.message, 'error');
+        return;
+      }
+
+      // 新規作成時：お知らせ自動生成（失敗しても無視）
+      if (!editId) {
+        try {
+          const notifMsg = (payload.category ? `【${payload.category}】` : '') + `「${payload.title}」が追加されました`;
+          await supabaseClient.from(TABLE_NOTIFICATIONS).insert({ message: notifMsg });
+        } catch(e) {}
+      }
+
+      // モーダルを先に閉じてから更新（閉じるのをブロックしない）
+      closeCreateEventModal();
+      loadEvents();
+      renderNotificationsPanel(true);
+
+    } catch(e) {
+      setStatus(statusEl, 'エラーが発生しました: ' + (e.message || '不明'), 'error');
+    } finally {
+      if (btn)  btn.disabled = false;
+      if (txt)  txt.classList.remove('hidden');
+      if (load) load.classList.add('hidden');
+    }
+  }
+
+  // ─── 管理者：詳細モーダル（テーブル表示） ────────────────────────────────
+  async function openDetail(eventId) {
+    currentEventId = eventId;
+    const ev = events.find(e => e.id === eventId);
+    if (!ev) return;
+
+    // ヘッダー: カテゴリー / タイトル
+    const titleEl = document.getElementById('detail-title');
+    titleEl.innerHTML = ev.category ? `${escHtml(ev.category)} / ${escHtml(ev.title)}` : escHtml(ev.title);
+
+    // サブ情報: 2行目📆/📍、3行目🕐/🚗
+    const dateShort = ev.event_date
+      ? new Date(ev.event_date + 'T00:00:00').toLocaleDateString('ja-JP', { month:'long', day:'numeric', weekday:'short' })
+      : '';
+    const col1 = [
+      dateShort     ? `📆 ${escHtml(dateShort)}`          : '',
+      ev.event_time ? `🕐 ${escHtml(ev.event_time)}`      : '',
+    ];
+    const col2 = [
+      ev.location  ? `📍 ${escHtml(ev.location)}`         : '',
+      ev.transport ? `🚗 ${escHtml(ev.transport)}` : '',
+    ];
+    const gridItems = [col1[0], col2[0], col1[1], col2[1]]
+      .map(s => `<div>${s}</div>`).join('');
+    document.getElementById('detail-subtitle').innerHTML =
+      `<div style="display:inline-grid;grid-template-columns:auto auto;gap:1px 12px">${gridItems}</div>`;
+
+    const { data: responses, error } = await supabaseClient
+      .from(TABLE_RESPONSES)
+      .select('*')
+      .eq('event_id', eventId)
+      .order('jersey_number');
+
+    if (error) { console.error(error); return; }
+
+    // 集計
+    document.getElementById('summary-total').textContent     = responses.length;
+    document.getElementById('summary-attend').textContent    = responses.filter(r => r.attendance    === '出席').length;
+    document.getElementById('summary-need-ride').textContent = responses.filter(r => r.transport_need === '乗せて欲しい').length;
+    document.getElementById('summary-can-drive').textContent = responses.filter(r => r.carpool       === 'できる').length;
+
+    // テーブル表示
+    detailResponses = responses;
+    detailSortCol   = 'jersey_number';
+    detailSortAsc   = true;
+    detailContext   = 'admin';
+    const listEl = document.getElementById('response-list');
+    const noEl   = document.getElementById('no-responses');
+    if (responses.length === 0) {
+      listEl.innerHTML = ''; noEl.classList.remove('hidden');
+    } else {
+      noEl.classList.add('hidden');
+      listEl.innerHTML = buildDetailTableHtml(applySortResponses(responses, 'jersey_number', true));
+      listEl.querySelectorAll('tbody tr[data-resp]').forEach(tr => {
+        tr.addEventListener('click', () => showResponseDetail(JSON.parse(tr.dataset.resp)));
+      });
+    }
+    document.getElementById('detail-modal').classList.remove('hidden');
+  }
+
+  // ─── 回答テーブル ソート ──────────────────────────────────────────────────
+  const SORT_ORDER = {
+    attendance:     { '出席':0, '欠席':1, '未定':2 },
+    transport_need: { '乗せて欲しい':0, '大丈夫':1, '未定':2 },
+    carpool:        { 'できる':0, '難しい':1, '未定':2 },
+  };
+  function applySortResponses(arr, col, asc) {
+    if (!col) return arr;
+    if (col === 'jersey_number') {
+      return [...arr].sort((a, b) => {
+        const va = Number(a.jersey_number) || 0, vb = Number(b.jersey_number) || 0;
+        return asc ? va - vb : vb - va;
+      });
+    }
+    const map = SORT_ORDER[col] || {};
+    return [...arr].sort((a, b) => {
+      const va = map[a[col]] ?? 99, vb = map[b[col]] ?? 99;
+      return asc ? va - vb : vb - va;
+    });
+  }
+  function sortDetailTable(col) {
+    if (detailSortCol === col) detailSortAsc = !detailSortAsc;
+    else { detailSortCol = col; detailSortAsc = true; }
+    const listId = detailContext === 'parent' ? 'parent-detail-list' : 'response-list';
+    const listEl = document.getElementById(listId);
+    if (!listEl) return;
+    const sorted = applySortResponses(detailResponses, detailSortCol, detailSortAsc);
+    listEl.innerHTML = buildDetailTableHtml(sorted);
+    listEl.querySelectorAll('tbody tr[data-resp]').forEach(tr => {
+      tr.addEventListener('click', () => showResponseDetail(JSON.parse(tr.dataset.resp)));
+    });
+  }
+  function sortIcon(col) {
+    if (detailSortCol !== col) return '<span class="text-gray-300 ml-0.5">⇅</span>';
+    return detailSortAsc ? '<span class="text-red-400 ml-0.5">▲</span>' : '<span class="text-red-400 ml-0.5">▼</span>';
+  }
+  function buildDetailTableHtml(responses) {
+    const rideLabel = r => r.transport_need === '乗せて欲しい'
+      ? `<span class="badge ${TRANSPORT_COLOR['乗せて欲しい']}" style="white-space:normal;line-height:1.3;text-align:center;min-width:3.5rem">乗せて<br>欲しい</span>`
+      : `<span class="badge ${TRANSPORT_COLOR[r.transport_need] || 'bg-gray-100 text-gray-500'}">${r.transport_need}</span>`;
+    if (responses.length === 0) return '<p class="text-center text-gray-400 text-sm py-8">まだ回答がありません</p>';
+    return `<table class="resp-table w-full">
+      <colgroup>
+        <col style="width:30%"><col style="width:17.5%"><col style="width:17.5%"><col style="width:17.5%"><col style="width:17.5%">
+      </colgroup>
+      <thead style="position:sticky;top:0;z-index:10;background:#f9fafb">
+        <tr>
+          <th class="text-left cursor-pointer select-none" onclick="sortDetailTable('jersey_number')">#名前${sortIcon('jersey_number')}</th>
+          <th class="cursor-pointer select-none" onclick="sortDetailTable('attendance')">出欠${sortIcon('attendance')}</th>
+          <th class="cursor-pointer select-none" onclick="sortDetailTable('transport_need')">送迎${sortIcon('transport_need')}</th>
+          <th class="cursor-pointer select-none" onclick="sortDetailTable('carpool')">配車${sortIcon('carpool')}</th>
+          <th class="text-left">備考</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${responses.map(r => {
+          const name  = getPlayerName(r.jersey_number);
+          const notes = r.notes || '';
+          const rowData = escHtml(JSON.stringify({ jersey_number: r.jersey_number, attendance: r.attendance, transport_need: r.transport_need, carpool: r.carpool, notes }));
+          return `<tr class="cursor-pointer hover:bg-blue-50 active:bg-blue-100" data-resp="${rowData}">
+            <td class="text-left">
+              <span class="block text-xs font-black text-gray-400">${escHtml(r.jersey_number)}</span>
+              <span class="font-medium text-gray-800">${escHtml(name)}</span>
+            </td>
+            <td><span class="badge ${ATTEND_COLOR[r.attendance] || 'bg-gray-100 text-gray-500'}">${r.attendance}</span></td>
+            <td>${rideLabel(r)}</td>
+            <td><span class="badge ${CARPOOL_COLOR[r.carpool] || 'bg-gray-100 text-gray-500'}">${r.carpool}</span></td>
+            <td class="text-left text-gray-500 text-xs"><div style="overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-all">${escHtml(notes)}</div></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+  }
+
+  function showResponseDetail(d) {
+    const name = getPlayerName(d.jersey_number);
+    const rideHtml = d.transport_need === '乗せて欲しい'
+      ? `<span class="badge ${TRANSPORT_COLOR['乗せて欲しい']}" style="white-space:normal;line-height:1.3;text-align:center;min-width:3.5rem">乗せて<br>欲しい</span>`
+      : `<span class="badge ${TRANSPORT_COLOR[d.transport_need] || 'bg-gray-100 text-gray-500'}">${escHtml(d.transport_need || '—')}</span>`;
+    document.getElementById('memo-popup-content').innerHTML = `
+      <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-5 py-4 rounded-t-2xl -mx-5 -mt-5 mb-4 flex items-center gap-3">
+        <span class="text-3xl font-black text-white/30">${escHtml(String(d.jersey_number))}</span>
+        <span class="text-xl font-black">${escHtml(name)}</span>
+      </div>
+      <div class="grid grid-cols-3 gap-2 text-center mb-3">
+        <div class="text-xs font-medium text-gray-400">出欠</div>
+        <div class="text-xs font-medium text-gray-400">送迎</div>
+        <div class="text-xs font-medium text-gray-400">配車</div>
+        <div><span class="badge ${ATTEND_COLOR[d.attendance] || 'bg-gray-100 text-gray-500'}">${escHtml(d.attendance || '—')}</span></div>
+        <div>${rideHtml}</div>
+        <div><span class="badge ${CARPOOL_COLOR[d.carpool] || 'bg-gray-100 text-gray-500'}">${escHtml(d.carpool || '—')}</span></div>
+      </div>
+      <div class="border-t border-gray-100 pt-3">
+        <span class="text-xs font-medium text-gray-400 block mb-1">備考</span>
+        <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap min-h-[1.5rem]">${escHtml(d.notes || '')}</p>
+      </div>`;
+    document.getElementById('memo-popup').classList.remove('hidden');
+  }
+  function closeMemoPopup() {
+    document.getElementById('memo-popup').classList.add('hidden');
+  }
+
+  // ─── 時間ピッカー ─────────────────────────────────────────────────────────
+  let tpRow    = 0;           // 0=開始行, 1=終了行
+  let tpCursor = 0;           // 0-3: 行内カーソル位置
+  let tpStart  = ['','','',''];
+  let tpEnd    = ['','','',''];
+  let tpAmPm   = '';          // '' | '午前' | '午後' | '終日'
+
+  function openTimePicker() {
+    const val = (document.getElementById('ev-time').value || '').trim();
+    tpStart = ['','','',''];
+    tpEnd   = ['','','',''];
+    tpAmPm  = '';
+
+    if (val === '終日') {
+      tpAmPm = '終日';
+    } else if (val) {
+      // prefix解析（午前/午後）
+      let body = val;
+      if (body.startsWith('午前')) { tpAmPm = '午前'; body = body.slice(2).trim(); }
+      else if (body.startsWith('午後')) { tpAmPm = '午後'; body = body.slice(2).trim(); }
+      // 時刻解析
+      const parts = body.split('〜');
+      const parse = (s, arr) => {
+        const m = s.trim().match(/^(\d{1,2}):(\d{2})$/);
+        if (!m) return;
+        const h = m[1].padStart(2,'0');
+        arr[0]=h[0]; arr[1]=h[1]; arr[2]=m[2][0]; arr[3]=m[2][1];
+      };
+      if (parts[0]) parse(parts[0], tpStart);
+      if (parts[1]) parse(parts[1], tpEnd);
+    }
+
+    tpRow = 0;
+    tpCursor = tpStart.findIndex(d => d === '');
+    if (tpCursor < 0) tpCursor = 4;
+    updateTpDisplay();
+    updateTpAmPmDisplay();
+    document.getElementById('time-picker-modal').classList.remove('hidden');
+  }
+
+  function closeTimePicker() {
+    document.getElementById('time-picker-modal').classList.add('hidden');
+  }
+
+  function tpSelectRow(row) {
+    tpRow = row;
+    const arr = row === 0 ? tpStart : tpEnd;
+    tpCursor = arr.findIndex(d => d === '');
+    if (tpCursor < 0) tpCursor = 4;
+    updateTpDisplay();
+  }
+
+  // 数字ボックスを直接タップしてカーソル移動
+  function tpMoveCursor(row, pos) {
+    tpRow    = row;
+    tpCursor = pos;
+    updateTpDisplay();
+  }
+
+  function tpInput(digit) {
+    const arr = tpRow === 0 ? tpStart : tpEnd;
+    const d = String(digit);
+
+    if (tpCursor === 0) {
+      // H1: ３以上なら "0" を自動挿入してH2に確定、MMに "00" をプリセット（20〜22時対応）
+      if (digit >= 3) {
+        arr[0] = '0'; arr[1] = d;
+        arr[2] = '0'; arr[3] = '0';
+        tpCursor = 2; // M1へ
+      } else {
+        arr[0] = d;
+        tpCursor = 1;
+      }
+    } else if (tpCursor === 1) {
+      // H2が確定 → MMに "00" をプリセットしてM1へ
+      arr[1] = d;
+      arr[2] = '0'; arr[3] = '0';
+      tpCursor = 2;
+    } else if (tpCursor === 2) {
+      // M1入力 → M2へ
+      arr[2] = d;
+      tpCursor = 3;
+    } else if (tpCursor === 3) {
+      // M2入力 → 行完了
+      arr[3] = d;
+      tpCursor = 4;
+      // 開始行完了 → 終了行の先頭へ自動移動
+      if (tpRow === 0) {
+        tpRow = 1; tpCursor = 0;
+      }
+    }
+    updateTpDisplay();
+  }
+
+  function tpBackspace() {
+    if (tpCursor > 0) {
+      const arr = tpRow === 0 ? tpStart : tpEnd;
+      tpCursor--;
+      arr[tpCursor] = '';
+    } else if (tpRow === 1) {
+      tpRow = 0; tpCursor = 3; tpStart[3] = '';
+    }
+    updateTpDisplay();
+  }
+
+  function tpNow() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2,'0');
+    const m = String(now.getMinutes()).padStart(2,'0');
+    const arr = tpRow === 0 ? tpStart : tpEnd;
+    arr[0]=h[0]; arr[1]=h[1]; arr[2]=m[0]; arr[3]=m[1];
+    tpCursor = 4;
+    updateTpDisplay();
+  }
+
+  function clearTimePicker() {
+    tpStart = ['','','',''];
+    tpEnd   = ['','','',''];
+    tpAmPm  = '';
+    tpRow   = 0;
+    tpCursor = 0;
+    updateTpDisplay();
+    updateTpAmPmDisplay();
+  }
+
+  function tpSetAmPm(val) {
+    tpAmPm = val;
+    updateTpAmPmDisplay();
+    // 午前・午後・終日はすぐ確定して閉じる
+    if (val === '午前' || val === '午後' || val === '終日') {
+      document.getElementById('ev-time').value = val;
+      closeTimePicker();
+    }
+  }
+
+  function updateTpAmPmDisplay() {
+    const map = { '':'tp-btn-none', '午前':'tp-btn-am', '午後':'tp-btn-pm', '終日':'tp-btn-all' };
+    ['tp-btn-none','tp-btn-am','tp-btn-pm','tp-btn-all'].forEach(id => {
+      document.getElementById(id)?.classList.remove('active');
+    });
+    const activeId = map[tpAmPm];
+    if (activeId) document.getElementById(activeId)?.classList.add('active');
+    // 終日選択中はデジット入力を無効化
+    const disabled = tpAmPm === '終日';
+    document.querySelectorAll('.tp-digit, .tp-num').forEach(el => {
+      el.style.opacity = disabled ? '0.35' : '';
+      el.style.pointerEvents = disabled ? 'none' : '';
+    });
+  }
+
+  function updateTpDisplay() {
+    const rows = [
+      { prefix:'s', arr:tpStart, rowId:'tp-row-0', active:tpRow===0 },
+      { prefix:'e', arr:tpEnd,   rowId:'tp-row-1', active:tpRow===1 },
+    ];
+    rows.forEach(({ prefix, arr, rowId, active }) => {
+      for (let i = 0; i < 4; i++) {
+        const el = document.getElementById(`tp-${prefix}${i}`);
+        if (!el) return;
+        const isCursor = active && i === tpCursor;
+        el.textContent = arr[i] || '—';
+        el.className = 'tp-digit' + (isCursor ? ' active' : '');
+      }
+      const rowEl = document.getElementById(rowId);
+      if (rowEl) {
+        const label = rowEl.querySelector('.tp-row-label');
+        if (label) label.style.color = active ? '#dc2626' : '';
+      }
+    });
+  }
+
+  function confirmTimePicker() {
+    if (tpAmPm === '終日') { document.getElementById('ev-time').value = '終日'; closeTimePicker(); return; }
+    const fmt = arr => {
+      if (arr.every(d => d === '')) return null;
+      if (arr.some(d => d === '')) return 'INCOMPLETE';
+      const h = arr[0]+arr[1], m = arr[2]+arr[3];
+      if (parseInt(h) > 23 || parseInt(m) > 59) return 'INVALID';
+      return `${h}:${m}`;
+    };
+    const s = fmt(tpStart), e = fmt(tpEnd);
+    if (s === 'INVALID' || e === 'INVALID') { alert('正しい時間を入力してください（例：09:00）'); return; }
+    if (s === 'INCOMPLETE' || e === 'INCOMPLETE') { alert('時間が未完成です。入力を確認してください。'); return; }
+    let time = '';
+    if (s && e) time = `${s}〜${e}`;
+    else if (s) time = `${s}〜`;
+    else if (e) time = `〜${e}`;
+    const prefix = tpAmPm ? `${tpAmPm} ` : '';
+    document.getElementById('ev-time').value = prefix + time;
+    closeTimePicker();
+  }
+
+  function closeDetailModal() {
+    document.getElementById('detail-modal').classList.add('hidden');
+    currentEventId = null;
+  }
+
+  // ─── イベントカード詳細ポップアップ ──────────────────────────────────────
+  let attCurrentCardEvent = null;
+
+  function openAttCardDetail(eventId) {
+    const ev = events.find(e => e.id === eventId) || (window._parentEvents||[]).find(e => e.id === eventId);
+    if (!ev) return;
+    attCurrentCardEvent = ev;
+
+    const color = catColor(ev.category);
+    document.getElementById('att-card-detail-title').innerHTML = ev.category
+      ? `<span class="font-black" style="color:${color}">${escHtml(ev.category)}</span><span class="text-gray-300 mx-1">/</span><span class="font-black text-gray-800">${escHtml(ev.title)}</span>`
+      : `<span class="font-black text-gray-800">${escHtml(ev.title)}</span>`;
+
+    const dateStr = formatDate(ev.event_date);
+    document.getElementById('att-card-detail-info').innerHTML =
+      `<div style="display:inline-grid;grid-template-columns:auto auto;gap:2px 12px">
+        <div>${dateStr        ? `📆 ${escHtml(dateStr)}`        : ''}</div>
+        <div>${ev.location    ? `📍 ${escHtml(ev.location)}`    : ''}</div>
+        <div>${ev.event_time  ? `🕐 ${escHtml(ev.event_time)}`  : ''}</div>
+        <div>${ev.transport   ? `🚗 ${escHtml(ev.transport)}`   : ''}</div>
+      </div>`;
+
+    const memoEl = document.getElementById('att-card-detail-memo');
+    if (ev.memo) { memoEl.textContent = `📝 ${ev.memo}`; memoEl.classList.remove('hidden'); }
+    else { memoEl.classList.add('hidden'); }
+
+    const adminLinks = document.getElementById('att-card-admin-links');
+    const adminBtns  = document.getElementById('att-card-admin-btns');
+    const parentBtns = document.getElementById('att-card-parent-btns');
+    if (isParentMode) {
+      adminLinks.classList.add('hidden');
+      adminBtns.classList.add('hidden');
+      parentBtns.classList.remove('hidden');
+      const count = ev[TABLE_RESPONSES]?.[0]?.count ?? 0;
+      document.getElementById('att-card-parent-resp-label').textContent = count > 0 ? `📊 結果を見る（${count}件）` : '📊 結果を見る';
+    } else {
+      const count = ev[TABLE_RESPONSES]?.[0]?.count ?? 0;
+      document.getElementById('att-card-resp-label').textContent = `📊 回答を確認（${count}件）`;
+      adminLinks.classList.remove('hidden');
+      adminBtns.classList.remove('hidden');
+      parentBtns.classList.add('hidden');
+    }
+
+    document.getElementById('att-card-detail-modal').classList.remove('hidden');
+  }
+
+  function closeAttCardDetail() {
+    document.getElementById('att-card-detail-modal').classList.add('hidden');
+    attCurrentCardEvent = null;
+  }
+  function attCardCopyLink()      { copyEventShareLink(attCurrentCardEvent?.id); }
+  function attCardViewResponses() { const id = attCurrentCardEvent?.id; closeAttCardDetail(); openDetail(id); }
+  function attCardEdit()          { const id = attCurrentCardEvent?.id; closeAttCardDetail(); openCreateEventModal(id); }
+  async function attCardDeleteConfirm() { const id = attCurrentCardEvent?.id; closeAttCardDetail(); await deleteEventById(id); }
+  function attCardRespond()       { const id = attCurrentCardEvent?.id; closeAttCardDetail(); openParentRespond(id); }
+  async function attCardResults() { const id = attCurrentCardEvent?.id; closeAttCardDetail(); await showParentResults(id); }
+
+  async function deleteEvent() {
+    if (!currentEventId) return;
+    if (!confirm('このイベントと全ての回答を削除しますか？\nこの操作は取り消せません。')) return;
+    const { error } = await supabaseClient.from(TABLE_EVENTS).delete().eq('id', currentEventId);
+    if (error) { alert('削除に失敗しました: ' + error.message); return; }
+    closeDetailModal();
+    await loadEvents();
+  }
+
+  async function copyShareLink() {
+    if (!currentEventId) return;
+    const cfg = loadConfig();
+    if (!cfg?.supabase_url) { alert('設定が見つかりません'); return; }
+    const hash = buildHashString(cfg);
+    const url  = `${getBaseUrl()}?respond=${currentEventId}#${hash}`;
+    const short = await shortenUrl(url);
+    const finalUrl = short || url;
+    try {
+      await navigator.clipboard.writeText(finalUrl);
+    } catch(e) {
+      prompt('以下のリンクをコピーしてください', finalUrl);
+    }
+  }
+
+  // ─── 保護者：イベント一覧モード ───────────────────────────────────────────
+  async function initParentMode() {
+    document.getElementById('settings-btn').classList.add('hidden');
+
+    const d = parseHashConfig();
+    if (d) {
+      if (d.u) SUPABASE_CONFIG.url     = d.u;
+      if (d.k) SUPABASE_CONFIG.anonKey = d.k;
+      if (d.t) document.getElementById('app-team-name').textContent = d.t;
+      if (d.c) applyColor(d.c);
+      const _latestCfg = loadConfig();
+      if (_latestCfg?.primary_color) applyColor(_latestCfg.primary_color);
+      parentHashConfig = d;
+    }
+
+    if (!initSupabase()) {
+      showFatalError('設定情報が不正です。管理者にお問い合わせください。'); return;
+    }
+
+    await autoCleanupEvents();
+    await loadPlayersMap();
+
+    const { data, error } = await supabaseClient
+      .from(TABLE_EVENTS)
+      .select('*')
+      .order('event_date', { ascending: false });
+
+    if (error) { showFatalError('イベントの読み込みに失敗しました。'); return; }
+
+    // 翌日以降は非表示（今日以降のイベントのみ表示）
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const visibleData = (data || []).filter(ev => ev.event_date >= todayStr);
+
+    window._parentEvents = data || [];
+
+    const listEl = document.getElementById('parent-event-list');
+    if (visibleData.length === 0) {
+      listEl.innerHTML = '<div class="text-center text-gray-400 text-sm py-12 bg-white rounded-2xl shadow">現在、予定されているイベントはありません</div>';
+    } else {
+      const groups = groupByCategory(visibleData);
+      listEl.innerHTML = buildCategoryTabsHtml(groups, buildParentEventCard, 'parent');
+    }
+
+    document.getElementById('parent-list-view').classList.remove('hidden');
+    document.getElementById('parent-create-event-btn')?.addEventListener('click', () => openCreateEventModal());
+  }
+
+
+  function openParentRespond(eventId) {
+    const ev = (window._parentEvents || []).find(e => e.id === eventId);
+
+    // ヘッダー情報（showParentResultsと同じ形式）
+    const _catTitle = ev?.category ? `${escHtml(ev.category)} / ${escHtml(ev?.title || '')}` : escHtml(ev?.title || '');
+    const _dateShort = ev?.event_date
+      ? new Date(ev.event_date + 'T00:00:00').toLocaleDateString('ja-JP', { month:'long', day:'numeric', weekday:'short' }) : '';
+    const _col1 = [_dateShort ? `📆 ${_dateShort}` : '', ev?.event_time ? `🕐 ${escHtml(ev.event_time)}` : ''];
+    const _col2 = [ev?.location ? `📍 ${escHtml(ev.location)}` : '', ev?.transport ? `🚗 ${escHtml(ev.transport)}` : ''];
+    const _gridItems = [_col1[0], _col2[0], _col1[1], _col2[1]].map(s => `<div>${s}</div>`).join('');
+
+    const cId = 'att-respond-popup-container';
+    let modal = document.getElementById('att-respond-popup-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'att-respond-popup-modal';
+      modal.className = 'fixed inset-0 z-[110]';
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+      <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="document.getElementById('att-respond-popup-modal').classList.add('hidden')"></div>
+      <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" style="max-height:calc(100vh - 2rem)">
+        <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-5 py-4 rounded-t-2xl flex items-start justify-between shrink-0">
+          <div class="min-w-0 flex-1">
+            <div class="text-xl font-black leading-tight mb-1">${_catTitle}</div>
+            <div class="text-xs text-white/80"><div style="display:inline-grid;grid-template-columns:auto auto;gap:1px 12px">${_gridItems}</div></div>
+          </div>
+          <button onclick="document.getElementById('att-respond-popup-modal').classList.add('hidden')" class="text-white/70 hover:text-white text-2xl leading-none shrink-0 ml-3">×</button>
+        </div>
+        <div class="overflow-y-auto flex-1" id="${cId}"></div>
+      </div>`;
+
+    modal.classList.remove('hidden');
+    renderRespondForm(eventId, '', cId);
+  }
+
+  // ─── 保護者：回答結果モーダル ──────────────────────────────────────────────
+  async function showParentResults(eventId) {
+    const ev = (window._parentEvents || []).find(e => e.id === eventId);
+    if (!ev) return;
+
+    const { data: responses, error } = await supabaseClient
+      .from(TABLE_RESPONSES).select('*').eq('event_id', eventId).order('jersey_number');
+    if (error) { alert('取得に失敗しました'); return; }
+
+    let modal = document.getElementById('parent-result-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'parent-result-modal';
+      modal.className = 'fixed inset-0 z-[100]';
+      document.body.appendChild(modal);
+    }
+
+    // ヘッダー情報
+    const _catTitle = ev.category ? `${escHtml(ev.category)} / ${escHtml(ev.title)}` : escHtml(ev.title);
+    const _dateShort = ev.event_date
+      ? new Date(ev.event_date + 'T00:00:00').toLocaleDateString('ja-JP', { month:'long', day:'numeric', weekday:'short' }) : '';
+    const _col1 = [_dateShort ? `📆 ${escHtml(_dateShort)}` : '', ev.event_time ? `🕐 ${escHtml(ev.event_time)}` : ''];
+    const _col2 = [ev.location ? `📍 ${escHtml(ev.location)}` : '', ev.transport ? `🚗 ${escHtml(ev.transport)}` : ''];
+    const _gridItems = [_col1[0], _col2[0], _col1[1], _col2[1]].map(s => `<div>${s}</div>`).join('');
+
+    // ソート状態リセット
+    detailResponses = responses;
+    detailSortCol   = 'jersey_number';
+    detailSortAsc   = true;
+    detailContext   = 'parent';
+
+    modal.innerHTML = `
+      <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="document.getElementById('parent-result-modal').classList.add('hidden')"></div>
+      <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" style="max-height:calc(100vh - 2rem)">
+        <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-5 py-4 rounded-t-2xl flex items-start justify-between shrink-0">
+          <div class="min-w-0 flex-1">
+            <div class="text-xl font-black leading-tight mb-1">${_catTitle}</div>
+            <div class="text-xs text-white/80"><div style="display:inline-grid;grid-template-columns:auto auto;gap:1px 12px">${_gridItems}</div></div>
+          </div>
+          <button onclick="document.getElementById('parent-result-modal').classList.add('hidden')" class="text-white/70 hover:text-white text-2xl leading-none shrink-0 ml-3">×</button>
+        </div>
+        <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 shrink-0">
+          <div class="grid grid-cols-4 gap-2 text-center">
+            <div class="bg-white rounded-xl p-2.5 shadow-sm flex flex-col"><p class="text-xs text-gray-400 leading-tight flex-1 flex items-end justify-center pb-1">回答数</p><p class="text-xl font-black text-gray-700">${responses.length}</p></div>
+            <div class="bg-green-50 rounded-xl p-2.5 flex flex-col"><p class="text-xs text-gray-400 leading-tight flex-1 flex items-end justify-center pb-1">出席</p><p class="text-xl font-black text-green-600">${responses.filter(r=>r.attendance==='出席').length}</p></div>
+            <div class="bg-red-50 rounded-xl p-2.5 flex flex-col"><p class="text-xs text-gray-400 leading-tight flex-1 flex items-end justify-center pb-1">乗せて<br>欲しい</p><p class="text-xl font-black text-red-600">${responses.filter(r=>r.transport_need==='乗せて欲しい').length}</p></div>
+            <div class="bg-blue-50 rounded-xl p-2.5 flex flex-col"><p class="text-xs text-gray-400 leading-tight flex-1 flex items-end justify-center pb-1">配車<br>できる</p><p class="text-xl font-black text-blue-600">${responses.filter(r=>r.carpool==='できる').length}</p></div>
+          </div>
+        </div>
+        <div class="overflow-y-auto flex-1" id="parent-detail-list">
+          ${buildDetailTableHtml(applySortResponses(responses, 'jersey_number', true))}
+        </div>
+      </div>`;
+
+    // 行クリック → 詳細ポップアップ
+    modal.querySelectorAll('tbody tr[data-resp]').forEach(tr => {
+      tr.addEventListener('click', () => showResponseDetail(JSON.parse(tr.dataset.resp)));
+    });
+    modal.classList.remove('hidden');
+  }
+
+  function buildEventInfoHtml(ev) {
+    return `
+      <p class="font-black text-gray-800 mb-1.5">
+        ${ev.category ? `<span class="text-xs font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full mr-1">${escHtml(ev.category)}</span>` : ''}${escHtml(ev.title)}
+      </p>
+      <div class="text-sm text-gray-500 space-y-0.5">
+        ${ev.event_date ? `<p>📆 ${formatDate(ev.event_date)}</p>` : ''}
+        ${ev.event_time ? `<p>🕐 ${escHtml(ev.event_time)}</p>` : ''}
+        ${ev.location   ? `<p>📍 ${escHtml(ev.location)}</p>`   : ''}
+        ${ev.transport  ? `<p>🚗 ${escHtml(ev.transport)}</p>` : ''}
+        ${ev.memo       ? `<div class="mt-2 bg-amber-50 rounded-xl px-3 py-2 text-amber-700 text-xs">📝 ${escHtml(ev.memo)}</div>` : ''}
+      </div>`;
+  }
+
+  // ─── 回答モード（直URLアクセス） ──────────────────────────────────────────
+  async function initRespondMode() {
+    document.getElementById('settings-btn').classList.add('hidden');
+
+    const d = parseHashConfig();
+    if (d) {
+      if (d.u) SUPABASE_CONFIG.url     = d.u;
+      if (d.k) SUPABASE_CONFIG.anonKey = d.k;
+      if (d.t) document.getElementById('app-team-name').textContent = d.t;
+      if (d.c) applyColor(d.c);
+    }
+
+    if (!initSupabase()) {
+      showFatalError('設定情報が不正です。管理者にお問い合わせください。'); return;
+    }
+
+    await loadPlayersMap();
+
+    const { data: ev, error } = await supabaseClient
+      .from(TABLE_EVENTS).select('*').eq('id', respondEventId).single();
+
+    if (error || !ev) {
+      showFatalError('イベントが見つかりません。URLを確認してください。'); return;
+    }
+
+    const card = document.getElementById('event-info-card');
+    card.innerHTML = buildEventInfoHtml(ev);
+    card.classList.remove('hidden');
+    renderRespondForm(respondEventId);
+    document.getElementById('respond-view').classList.remove('hidden');
+  }
+
+  // ─── 回答フォーム ─────────────────────────────────────────────────────────
+  function renderRespondForm(eventId, prefillJersey = '', cId = 'form-container') {
+    const container = document.getElementById(cId);
+    if (!container) return;
+    container.innerHTML = `
+      <form id="attend-form" class="bg-white px-4 pt-4 pb-1 space-y-3">
+
+        <div>
+          <label class="block text-gray-700 font-bold text-sm mb-1">背番号 <span class="text-red-500">*</span></label>
+          <div class="flex items-center gap-3">
+            <input type="number" id="f-jersey" min="1" max="99" inputmode="numeric"
+              class="w-24 bg-gray-50 border-2 border-gray-200 rounded-xl px-3 py-2 text-gray-800 focus:outline-none focus:border-red-400 text-2xl font-black text-center"
+              placeholder="10" oninput="onJerseyInput(this.value)">
+            <p id="f-player-name" class="text-base font-black text-gray-700"></p>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-gray-700 font-bold text-sm mb-1">出欠確認 <span class="text-red-500">*</span></label>
+          <div class="grid grid-cols-3 gap-1.5">
+            ${radios('f-attend', [{v:'出席',i:'✅',c:'green'},{v:'欠席',i:'❌',c:'red'},{v:'未定',i:'❓',c:'gray'}])}
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-gray-700 font-bold text-sm mb-1">送迎について <span class="text-red-500">*</span></label>
+          <div class="grid grid-cols-3 gap-1.5">
+            ${radios('f-transport', [{v:'大丈夫',i:'👍',c:'gray'},{v:'乗せて欲しい',i:'🙏',c:'blue'},{v:'未定',i:'❓',c:'gray'}])}
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-gray-700 font-bold text-sm mb-1">配車について <span class="text-red-500">*</span></label>
+          <div class="grid grid-cols-3 gap-1.5">
+            ${radios('f-carpool', [{v:'できる',i:'🚗',c:'amber'},{v:'難しい',i:'🚫',c:'red'},{v:'未定',i:'❓',c:'gray'}])}
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-gray-700 font-bold text-sm mb-1">備考（何かあれば）</label>
+          <input type="text" id="f-notes" placeholder="自由入力"
+            class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-3 py-2 text-gray-800 focus:outline-none focus:border-red-400">
+        </div>
+
+        <div id="form-status" class="hidden text-sm rounded-xl px-3 py-2 font-medium"></div>
+
+        <button type="button" id="submit-btn" onclick="submitResponse('${eventId}', '${cId}')"
+          class="w-full bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-2xl text-base transition-colors">
+          <span id="submit-text">回答を送信する</span>
+          <span id="submit-loading" class="hidden">送信中...</span>
+        </button>
+      </form>`;
+
+    // ラジオボタンのクリックイベント（コンテナ内のみ対象）
+    container.querySelectorAll('.radio-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const name = btn.dataset.name;
+        container.querySelectorAll(`.radio-btn[data-name="${name}"]`).forEach(b => {
+          b.dataset.selected = (b === btn) ? '1' : '0';
+        });
+      });
+    });
+
+    // 修正モード：背番号を引き継ぐ
+    if (prefillJersey) {
+      const jerseyInput = document.getElementById('f-jersey');
+      if (jerseyInput) {
+        jerseyInput.value = prefillJersey;
+        onJerseyInput(prefillJersey);
+      }
+    }
+  }
+
+  function onJerseyInput(val) {
+    const nameEl = document.getElementById('f-player-name');
+    if (!nameEl) return;
+    const name = getPlayerName(String(val).trim());
+    nameEl.textContent = name || '';
+  }
+
+  function radios(name, opts) {
+    return opts.map(o =>
+      `<button type="button" class="radio-btn" data-name="${name}" data-value="${o.v}" data-color="${o.c}" data-selected="0">
+        ${o.i}<br>${o.v}
+      </button>`
+    ).join('');
+  }
+
+  function getRadioValue(name) {
+    return document.querySelector(`.radio-btn[data-name="${name}"][data-selected="1"]`)?.dataset.value || null;
+  }
+
+  async function submitResponse(eventId, cId = 'form-container') {
+    const btn      = document.getElementById('submit-btn');
+    const statusEl = document.getElementById('form-status');
+
+    const jersey    = document.getElementById('f-jersey').value.trim();
+    const attend    = getRadioValue('f-attend');
+    const transport = getRadioValue('f-transport');
+    const carpool   = getRadioValue('f-carpool');
+
+    if (!jersey)    { setStatus(statusEl, '背番号を入力してください', 'error'); return; }
+    if (!attend)    { setStatus(statusEl, '出欠確認を選択してください', 'error'); return; }
+    if (!transport) { setStatus(statusEl, '送迎について選択してください', 'error'); return; }
+    if (!carpool)   { setStatus(statusEl, '配車について選択してください', 'error'); return; }
+
+    btn.disabled = true;
+    document.getElementById('submit-text').classList.add('hidden');
+    document.getElementById('submit-loading').classList.remove('hidden');
+
+    const { error } = await supabaseClient
+      .from(TABLE_RESPONSES)
+      .upsert({
+        event_id:       eventId,
+        jersey_number:  jersey,
+        attendance:     attend,
+        transport_need: transport,
+        carpool,
+        notes: document.getElementById('f-notes').value.trim() || null,
+      }, { onConflict: 'event_id,jersey_number' });
+
+    btn.disabled = false;
+    document.getElementById('submit-text').classList.remove('hidden');
+    document.getElementById('submit-loading').classList.add('hidden');
+
+    if (error) {
+      setStatus(statusEl, '送信に失敗しました。もう一度お試しください。', 'error');
+      console.error(error);
+      return;
+    }
+
+    // 完了画面
+    const name = getPlayerName(jersey);
+    document.getElementById(cId).innerHTML = `
+      <div class="bg-white p-10 text-center space-y-4">
+        <div class="text-6xl">✅</div>
+        <h3 class="text-xl font-black text-gray-800">回答を送信しました</h3>
+        ${name ? `<p class="text-gray-500 font-bold">#${escHtml(jersey)} ${escHtml(name)}</p>` : ''}
+        <p class="text-gray-400 text-sm">ありがとうございました</p>
+        <button type="button" onclick="renderRespondForm('${eventId}', '', '${cId}')"
+          class="w-full bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-2xl text-base transition-colors">
+          👨‍👩‍👦 兄弟・別の選手の回答をする
+        </button>
+        <button type="button" onclick="renderRespondForm('${eventId}', '${jersey}', '${cId}')"
+          class="mt-1 text-sm text-gray-400 underline">この背番号の回答を修正する</button>
+      </div>`;
+  }
+
+  // ─── カラーピッカー ──────────────────────────────────────────────────────
+  function attSetPresetColor(hex) {
+    const cp = document.getElementById('setup-primary-color');
+    if (cp) cp.value = hex;
+    applyColor(hex);
+    attUpdateColorPanelUI(hex);
+  }
+
+  function attUpdateColorPanelUI(hex) {
+    if (!hex) return;
+    const normalized = hex.toLowerCase();
+    document.querySelectorAll('.att-color-preset-btn').forEach(btn => {
+      const isSelected = btn.dataset.color === normalized;
+      btn.style.outline      = isSelected ? '3px solid #111' : '';
+      btn.style.outlineOffset = isSelected ? '2px' : '';
+      btn.style.transform    = isSelected ? 'scale(1.18)' : '';
+    });
+    const swatch = document.getElementById('att-color-preview-swatch');
+    if (swatch) swatch.style.background = hex;
+    const label = document.getElementById('att-color-preview-hex');
+    if (label) label.textContent = hex.toUpperCase();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('setup-primary-color')?.addEventListener('input', e => {
+      applyColor(e.target.value);
+      attUpdateColorPanelUI(e.target.value);
+    });
+  });
+
+  // ─── 接続設定 ─────────────────────────────────────────────────────────────
+  // ─── チーム管理 ───────────────────────────────────────────────────────────
+  let attSetupMode     = 'edit'; // 'edit' | 'new' | 'edit-team'
+  let attEditingTeamId = null;
+
+  function openTeamManager() {
+    document.getElementById('settings-menu')?.classList.add('hidden');
+    renderAttTeamList();
+    document.getElementById('att-team-manager-modal').classList.remove('hidden');
+  }
+  function closeTeamManager() {
+    document.getElementById('att-team-manager-modal').classList.add('hidden');
+  }
+  function renderAttTeamList() {
+    const teams    = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
+    const activeId = localStorage.getItem(STORAGE_ACTIVE_KEY);
+    const container = document.getElementById('att-team-list');
+    if (!container) return;
+    const resolvedActive = activeId || teams[0]?.id;
+    container.innerHTML = (teams.length === 0
+      ? '<p class="text-center text-gray-400 text-sm py-4">チームがまだ登録されていません</p>'
+      : teams.map(team => {
+          const isActive = team.id === resolvedActive;
+          return `<div class="flex items-center gap-2 p-3 rounded-xl border-2 ${isActive ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'} transition-colors">
+            <div class="flex-1 min-w-0">
+              <p class="font-bold text-gray-800 truncate">${escHtml(team.team_name || '名前なし')}</p>
+              ${isActive ? '<p class="text-xs text-blue-600 font-medium">✓ 使用中</p>' : ''}
+            </div>
+            ${!isActive ? `<button onclick="switchToAttTeam('${team.id}')" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold transition-colors">切替</button>` : ''}
+            <button onclick="editAttTeam('${team.id}')" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-colors">編集</button>
+            <button onclick="deleteAttTeam('${team.id}')" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 text-xs font-bold transition-colors">削除</button>
+          </div>`;
+        }).join('')
+    ) + `<button onclick="openSetupModal('new')" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-blue-300 text-blue-600 font-bold hover:bg-blue-50 transition-colors mt-1">＋ チームを追加</button>`;
+  }
+  async function switchToAttTeam(teamId) {
+    const teams = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
+    const team  = teams.find(t => t.id === teamId);
+    if (!team) return;
+    localStorage.setItem(STORAGE_ACTIVE_KEY, teamId);
+    const cfg = { supabase_url: team.supabase_url, supabase_anon_key: team.supabase_anon_key, team_name: team.team_name, primary_color: team.primary_color, footer_text: team.footer_text };
+    localStorage.setItem(STORAGE_CONFIG_KEY, JSON.stringify(cfg));
+    applyConfig(cfg);
+    supabaseClient = null;
+    initSupabase();
+    closeTeamManager();
+    events = [];
+    await loadPlayersMap();
+    await loadEvents();
+  }
+  function editAttTeam(teamId) {
+    closeTeamManager();
+    openSetupModal('edit-team', teamId);
+  }
+  async function deleteAttTeam(teamId) {
+    const teams = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
+    const team  = teams.find(t => t.id === teamId);
+    if (!team) return;
+    if (teams.length === 1) { alert('最後のチームは削除できません'); return; }
+    if (!confirm(`「${team.team_name}」を削除しますか？`)) return;
+    const newTeams = teams.filter(t => t.id !== teamId);
+    localStorage.setItem(STORAGE_TEAMS_KEY, JSON.stringify(newTeams));
+    // 使用中チームを削除した場合は先頭チームへ自動切替
+    if ((localStorage.getItem(STORAGE_ACTIVE_KEY) || teams[0]?.id) === teamId) {
+      await switchToAttTeam(newTeams[0].id);
+    } else {
+      renderAttTeamList();
+    }
+  }
+
+  function openSetupModal(mode = 'edit', teamId = null) {
+    attSetupMode     = mode;
+    attEditingTeamId = teamId;
+    let cfg = null;
+    if (mode === 'new') {
+      cfg = { team_name:'', supabase_url:'', supabase_anon_key:'', primary_color:'#c0392b', footer_text:'' };
+    } else if (mode === 'edit-team' && teamId) {
+      const teams = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
+      const team  = teams.find(t => t.id === teamId);
+      cfg = team ? { team_name: team.team_name, supabase_url: team.supabase_url, supabase_anon_key: team.supabase_anon_key, primary_color: team.primary_color, footer_text: team.footer_text } : loadConfig();
+    } else {
+      cfg = loadConfig();
+    }
+    if (cfg) {
+      document.getElementById('setup-team-name').value   = cfg.team_name || '';
+      document.getElementById('setup-url').value         = cfg.supabase_url || '';
+      document.getElementById('setup-anon-key').value    = cfg.supabase_anon_key || '';
+      document.getElementById('setup-footer-text').value = cfg.footer_text || '';
+      const color = cfg.primary_color || '#c0392b';
+      const cp = document.getElementById('setup-primary-color');
+      if (cp) cp.value = color;
+      attUpdateColorPanelUI(color);
+    }
+    document.getElementById('setup-status').classList.add('hidden');
+    document.getElementById('setup-modal').classList.remove('hidden');
+  }
+
+  async function handleSetupSave() {
+    const btn      = document.getElementById('setup-save-btn');
+    const txt      = document.getElementById('setup-save-text');
+    const load     = document.getElementById('setup-save-loading');
+    const statusEl = document.getElementById('setup-status');
+
+    const teamName   = document.getElementById('setup-team-name').value.trim();
+    const url        = document.getElementById('setup-url').value.trim();
+    const key        = document.getElementById('setup-anon-key').value.trim();
+    const footerText = document.getElementById('setup-footer-text').value.trim();
+
+    if (!teamName) { setStatus(statusEl, 'チーム名を入力してください', 'error'); return; }
+    if (!url || !url.startsWith('https://')) { setStatus(statusEl, 'URLを正しく入力してください（https://...）', 'error'); return; }
+    if (!key || !key.startsWith('eyJ'))       { setStatus(statusEl, 'anon キーを確認してください', 'error'); return; }
+
+    btn.disabled = true; txt.classList.add('hidden'); load.classList.remove('hidden');
+    setStatus(statusEl, '接続テスト中...', 'info');
+
+    let testOk = false;
+    try {
+      const res = await fetch(`${url.replace(/\/$/, '')}/rest/v1/${TABLE_EVENTS}?select=id&limit=1`, {
+        headers: { apikey: key, Authorization: `Bearer ${key}` }
+      });
+      if (res.status === 401 || res.status === 403) {
+        setStatus(statusEl, '認証エラー：anon キーを確認してください', 'error');
+      } else if (res.status === 404) {
+        setStatus(statusEl, 'テーブルが見つかりません。先にSQLを実行してください', 'error');
+      } else {
+        testOk = true;
+      }
+    } catch(e) {
+      setStatus(statusEl, '接続できませんでした。URLを確認してください', 'error');
+    }
+
+    btn.disabled = false; txt.classList.remove('hidden'); load.classList.add('hidden');
+    if (!testOk) return;
+
+    const primaryColor = document.getElementById('setup-primary-color')?.value || '#c0392b';
+    const newCfg = { team_name: teamName, supabase_url: url.replace(/\/$/, ''), supabase_anon_key: key, primary_color: primaryColor, footer_text: footerText || '© ATTENDANCE SYSTEM' };
+
+    if (attSetupMode === 'new') {
+      // 新規チームとして追加
+      const teams  = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
+      const newId  = Date.now().toString();
+      teams.push({ id: newId, ...newCfg });
+      localStorage.setItem(STORAGE_TEAMS_KEY, JSON.stringify(teams));
+      localStorage.setItem(STORAGE_ACTIVE_KEY, newId);
+      localStorage.setItem(STORAGE_CONFIG_KEY, JSON.stringify(newCfg));
+    } else if (attSetupMode === 'edit-team' && attEditingTeamId) {
+      // 特定チームを編集
+      const teams = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
+      const idx   = teams.findIndex(t => t.id === attEditingTeamId);
+      if (idx >= 0) { teams[idx] = { ...teams[idx], ...newCfg }; localStorage.setItem(STORAGE_TEAMS_KEY, JSON.stringify(teams)); }
+      // アクティブチームなら CONFIG_KEY も更新
+      if (localStorage.getItem(STORAGE_ACTIVE_KEY) === attEditingTeamId) {
+        localStorage.setItem(STORAGE_CONFIG_KEY, JSON.stringify(newCfg));
+      }
+    } else {
+      saveConfig(newCfg);
+    }
+    applyConfig(newCfg);
+    supabaseClient = null;
+    initSupabase();
+
+    setStatus(statusEl, '✅ 接続OK！保存しました', 'success');
+    setTimeout(async () => {
+      document.getElementById('setup-modal').classList.add('hidden');
+      await loadPlayersMap();
+      await loadEvents();
+    }, 800);
+  }
+
+  // ─── ユーティリティ ───────────────────────────────────────────────────────
+  function escHtml(str) {
+    return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+      return new Date(dateStr + 'T00:00:00').toLocaleDateString('ja-JP', { month:'long', day:'numeric', weekday:'short' });
+    } catch(e) { return dateStr; }
+  }
+
+  function setStatus(el, msg, type) {
+    const cls = { error:'bg-red-50 border border-red-200 text-red-700', success:'bg-green-50 border border-green-200 text-green-700', info:'bg-blue-50 border border-blue-200 text-blue-700' };
+    el.className = `text-sm rounded-xl px-4 py-3 font-medium ${cls[type] || cls.info}`;
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+
+  function showFatalError(msg) {
+    document.getElementById('respond-view').innerHTML = `
+      <div class="bg-white rounded-2xl shadow p-10 text-center space-y-3">
+        <div class="text-5xl">⚠️</div>
+        <p class="text-gray-600 font-bold">${msg}</p>
+      </div>`;
+    document.getElementById('respond-view').classList.remove('hidden');
+    document.getElementById('loading-screen').classList.add('hidden');
+  }
+
+  // ─── 認証・サブスクリプション ─────────────────────────────────────────────
+  const AUTH_URL      = 'https://ggmtlfhctezozcdohzcm.supabase.co';
+  const AUTH_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdnbXRsZmhjdGV6b3pjZG9oemNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMTIxMDQsImV4cCI6MjA4ODY4ODEwNH0.vpU78D4jYRdGPUTbYvG-vI_KMRwLofUJou_TmZ0FXBo';
+  const STORAGE_APP_URL_KEY = 'att_app_public_url_v1';
+  let authClient = null;
+
+  function getAuthClient() {
+    if (!authClient) authClient = window.supabase.createClient(AUTH_URL, AUTH_ANON_KEY);
+    return authClient;
+  }
+
+  const SUB_CACHE_KEY = 'att_sub_cache';
+  function getSubCache(email) {
+    try {
+      const c = JSON.parse(localStorage.getItem(SUB_CACHE_KEY) || 'null');
+      if (c && c.email === email && c.ok && Date.now() < c.exp) return true;
+    } catch(e) {}
+    return null; // キャッシュなし
+  }
+  function setSubCache(email, ok) {
+    try {
+      localStorage.setItem(SUB_CACHE_KEY, JSON.stringify({
+        email, ok, exp: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7日間
+      }));
+    } catch(e) {}
+  }
+
+  async function checkSubscription(email) {
+    // キャッシュが有効なら即OKを返す（モバイル等の遅い回線対策）
+    if (getSubCache(email) === true) return true;
+
+    const { data, error } = await getAuthClient()
+      .from('subscriptions').select('status, plan').eq('email', email).maybeSingle();
+    if (error) {
+      console.warn('checkSubscription error:', error);
+      return true; // テーブルエラー時はブロックしない
+    }
+    if (!data) return false;
+    // attendance単体 または セットプランのみ許可
+    const ok = data.status === 'active' && (data.plan === 'attendance' || data.plan === 'set');
+    if (ok) setSubCache(email, true); // 成功をキャッシュ
+    return ok;
+  }
+
+  function showLoginModal() {
+    document.getElementById('att-login-modal')?.classList.remove('hidden');
+  }
+  function hideLoginModal() {
+    document.getElementById('att-login-modal')?.classList.add('hidden');
+  }
+  function showSubscriptionModal() {
+    document.getElementById('att-subscription-modal')?.classList.remove('hidden');
+  }
+
+  function setLoginStatus(msg, type) {
+    const el = document.getElementById('att-login-status');
+    if (!el) return;
+    el.classList.remove('hidden');
+    const styles = { error: 'bg-red-50 border border-red-200 text-red-700', info: 'bg-blue-50 border border-blue-200 text-blue-700' };
+    el.className = `text-sm rounded-lg px-4 py-3 font-medium ${styles[type] || styles.info}`;
+    el.textContent = msg;
+  }
+
+  async function handleLogin() {
+    const email    = document.getElementById('att-login-email')?.value.trim();
+    const password = document.getElementById('att-login-password')?.value;
+    const btn      = document.getElementById('att-login-btn');
+    const btnText  = document.getElementById('att-login-btn-text');
+    const btnLoad  = document.getElementById('att-login-btn-loading');
+    if (!email || !password) { setLoginStatus('メールアドレスとパスワードを入力してください', 'error'); return; }
+    btn.disabled = true;
+    btnText?.classList.add('hidden');
+    btnLoad?.classList.remove('hidden');
+    try {
+      setLoginStatus('認証中… 最大60秒かかる場合があります', 'info');
+      const { data, error } = await Promise.race([
+        getAuthClient().auth.signInWithPassword({ email, password }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 60000))
+      ]);
+      if (error) { setLoginStatus('メールアドレスまたはパスワードが違います', 'error'); return; }
+      setLoginStatus('サブスクリプション確認中…', 'info');
+      let ok = false;
+      try {
+        ok = await Promise.race([
+          checkSubscription(email),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 30000))
+        ]);
+      } catch(e) { ok = false; }
+      if (!ok) { hideLoginModal(); showSubscriptionModal(); return; }
+      location.reload();
+    } catch(e) {
+      setLoginStatus(e.message === 'timeout' ? '通信がタイムアウトしました。再度お試しください（回線が遅い場合は時間をおいてください）' : 'ログインに失敗しました', 'error');
+    } finally {
+      btn.disabled = false;
+      btnText?.classList.remove('hidden');
+      btnLoad?.classList.add('hidden');
+    }
+  }
+
+  async function handleForgotPassword() {
+    const email = document.getElementById('att-login-email')?.value.trim();
+    if (!email) { setLoginStatus('メールアドレスを入力してください', 'error'); return; }
+    try {
+      const { error } = await getAuthClient().auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://upo2006.github.io/mrs-app/attendance.html'
+      });
+      if (error) { setLoginStatus('送信に失敗しました', 'error'); return; }
+      setLoginStatus('パスワードリセットメールを送信しました', 'info');
+    } catch(e) {
+      setLoginStatus('送信に失敗しました', 'error');
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await Promise.race([
+        getAuthClient().auth.signOut(),
+        new Promise(r => setTimeout(r, 3000))
+      ]);
+    } catch(e) {}
+    location.reload();
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !document.getElementById('att-login-modal')?.classList.contains('hidden')) {
+      handleLogin();
+    }
+  });
+
+  function showResetPasswordModal() {
+    document.getElementById('att-reset-password-modal')?.classList.remove('hidden');
+  }
+
+  async function handleResetPassword() {
+    const pw1 = document.getElementById('att-reset-pw1')?.value;
+    const pw2 = document.getElementById('att-reset-pw2')?.value;
+    const statusEl = document.getElementById('att-reset-pw-status');
+    if (!pw1 || pw1.length < 6) {
+      statusEl.className = 'text-sm rounded-lg px-4 py-3 font-medium bg-red-50 border border-red-200 text-red-700';
+      statusEl.textContent = '6文字以上のパスワードを入力してください'; statusEl.classList.remove('hidden'); return;
+    }
+    if (pw1 !== pw2) {
+      statusEl.className = 'text-sm rounded-lg px-4 py-3 font-medium bg-red-50 border border-red-200 text-red-700';
+      statusEl.textContent = 'パスワードが一致しません'; statusEl.classList.remove('hidden'); return;
+    }
+    try {
+      const { error } = await getAuthClient().auth.updateUser({ password: pw1 });
+      if (error) { statusEl.className = 'text-sm rounded-lg px-4 py-3 font-medium bg-red-50 border border-red-200 text-red-700'; statusEl.textContent = '更新に失敗しました'; statusEl.classList.remove('hidden'); return; }
+      statusEl.className = 'text-sm rounded-lg px-4 py-3 font-medium bg-blue-50 border border-blue-200 text-blue-700';
+      statusEl.textContent = 'パスワードを更新しました。再ログインしてください'; statusEl.classList.remove('hidden');
+      setTimeout(() => { getAuthClient().auth.signOut(); location.href = location.pathname; }, 2000);
+    } catch(e) {
+      statusEl.className = 'text-sm rounded-lg px-4 py-3 font-medium bg-red-50 border border-red-200 text-red-700';
+      statusEl.textContent = '更新に失敗しました'; statusEl.classList.remove('hidden');
+    }
+  }
+
+  // ─── 起動 ─────────────────────────────────────────────────────────────────
+  (async () => {
+    try {
+      // パスワードリセット検出
+      getAuthClient().auth.onAuthStateChange((event) => {
+        if (event === 'PASSWORD_RECOVERY') { showResetPasswordModal(); }
+      });
+
+      // 保護者：個別イベント回答モード
+      if (isRespondMode) {
+        await initRespondMode();
+        document.getElementById('loading-screen').classList.add('hidden');
+        return;
+      }
+
+      // 保護者：イベント一覧モード
+      if (isParentMode) {
+        applyModeRestrictions();
+        await initParentMode();
+
+        // 「戻る」ボタン
+        document.getElementById('back-to-list-btn').addEventListener('click', () => {
+          document.getElementById('respond-view').classList.add('hidden');
+          document.getElementById('back-to-list-btn').classList.add('hidden');
+          document.getElementById('parent-list-view').classList.remove('hidden');
+          window.scrollTo(0, 0);
+        });
+
+        document.getElementById('loading-screen').classList.add('hidden');
+        await renderNotificationsPanel();
+        return;
+      }
+
+      // コーチモード（ハッシュあり or セッション継続）はログイン不要
+      const skipAuth = isCoachMode;
+
+      // セットアップモード：認証チェック（タイムアウト付き）
+      if (!skipAuth) {
+        let session = null;
+        try {
+          const result = await Promise.race([
+            getAuthClient().auth.getSession(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('auth_timeout')), 60000))
+          ]);
+          session = result?.data?.session ?? null;
+        } catch(e) {
+          // タイムアウトまたは通信エラー → ログイン画面へ
+        }
+        if (!session) { showLoginModal(); return; }
+        let subOk = false;
+        try {
+          subOk = await Promise.race([
+            checkSubscription(session.user.email),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 30000))
+          ]);
+        } catch(e) { /* タイムアウト → サブスクリプション未確認扱い */ }
+        if (!subOk) { showSubscriptionModal(); return; }
+
+        // ログアウトボタンを追加（セットアップモードのみ）
+        const settingsMenuEl2 = document.getElementById('settings-menu');
+        if (settingsMenuEl2 && !document.getElementById('logout-btn')) {
+          const lb = document.createElement('button');
+          lb.id = 'logout-btn'; lb.type = 'button';
+          lb.className = 'w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 text-gray-500 font-bold';
+          lb.textContent = '🚪 ログアウト';
+          lb.onclick = handleLogout;
+          settingsMenuEl2.appendChild(lb);
+        }
+      }
+
+      applyModeRestrictions();
+
+      // 管理者モード
+      const settingsBtnEl = document.getElementById('settings-btn');
+      const settingsMenuEl = document.getElementById('settings-menu');
+      if (settingsBtnEl && settingsMenuEl) {
+        settingsBtnEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          settingsMenuEl.classList.toggle('hidden');
+        });
+        document.addEventListener('click', (e) => {
+          if (!settingsMenuEl.contains(e.target) && !settingsBtnEl.contains(e.target)) {
+            settingsMenuEl.classList.add('hidden');
+          }
+        });
+        document.getElementById('open-setup-menu-btn')?.addEventListener('click', () => {
+          settingsMenuEl.classList.add('hidden');
+          openSetupModal();
+        });
+      }
+      document.getElementById('create-event-btn').addEventListener('click', () => openCreateEventModal());
+      document.getElementById('save-event-btn').addEventListener('click', saveEvent);
+      document.getElementById('setup-save-btn').addEventListener('click', handleSetupSave);
+
+      document.getElementById('admin-view').classList.remove('hidden');
+
+      // URLハッシュから接続設定を自動読み込み（コーチリンク経由）
+      if (location.hash) {
+        try {
+          const d = parseHashConfig();
+          if (d?.u && d?.k) {
+            const newCfg = { supabase_url: d.u, supabase_anon_key: d.k, team_name: d.t || '', primary_color: d.c || '#c0392b' };
+            saveConfig(newCfg);
+            // コーチモードをセッションに記憶してからハッシュを除去
+            try { sessionStorage.setItem('mrs_att_coach', '1'); } catch(e) {}
+            history.replaceState(null, '', location.pathname + location.search);
+            applyConfig(newCfg);
+            if (initSupabase()) {
+              await autoCleanupEvents();
+              await loadPlayersMap();
+              await loadEvents();
+              await renderNotificationsPanel(true);
+            }
+            return;
+          }
+        } catch(e) { console.warn('コーチリンク解析エラー:', e); }
+      }
+
+      const cfg = loadConfig();
+      if (cfg?.supabase_url) {
+        applyConfig(cfg);
+        if (initSupabase()) {
+          await autoCleanupEvents();
+          await loadPlayersMap();
+          await loadEvents();
+          await renderNotificationsPanel(true);
+        }
+      } else {
+        openSetupModal();
+      }
+    } catch(e) {
+      console.error('起動エラー:', e);
+    } finally {
+      document.getElementById('loading-screen').classList.add('hidden');
+    }
+  })();
+</script>
+
+  <!-- ══ ログインモーダル ══════════════════════════════════════════════ -->
+  <div id="att-login-modal" class="fixed inset-0 z-[200] hidden">
+    <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
+    <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-sm bg-white rounded-2xl shadow-2xl overflow-auto max-h-full">
+      <div class="text-white px-6 py-6 rounded-t-2xl text-center" style="background: linear-gradient(to right, var(--primary-dark), var(--primary));">
+        <div class="text-4xl mb-2">📋</div>
+        <h2 class="text-xl font-black">出欠確認システム</h2>
+        <p class="text-sm text-white/80 mt-1">ログインしてください</p>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1">メールアドレス</label>
+          <input id="att-login-email" type="email" placeholder="email@example.com"
+            class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2" style="--tw-ring-color: var(--primary);" />
+        </div>
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1">パスワード</label>
+          <div class="relative">
+            <input id="att-login-password" type="password" placeholder="パスワード"
+              class="w-full border border-gray-300 rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2" />
+            <button type="button" onclick="(function(){const i=document.getElementById('att-login-password');const b=document.getElementById('att-pw-eye');i.type=i.type==='password'?'text':'password';b.textContent=i.type==='password'?'👁':'🙈';})()"
+              id="att-pw-eye"
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none">👁</button>
+          </div>
+        </div>
+        <div id="att-login-status" class="hidden"></div>
+        <button onclick="handleLogin()" id="att-login-btn"
+          class="w-full text-white font-black py-3 rounded-xl transition-colors" style="background: var(--primary);">
+          <span id="att-login-btn-text">ログイン</span>
+          <span id="att-login-btn-loading" class="hidden">ログイン中…</span>
+        </button>
+        <p class="text-center text-sm text-gray-500 pt-1">
+          <button type="button" onclick="handleForgotPassword()" style="color: var(--primary);" class="hover:underline">パスワードを忘れた方はこちら</button>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ パスワードリセットモーダル ════════════════════════════════════ -->
+  <div id="att-reset-password-modal" class="fixed inset-0 z-[200] hidden">
+    <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
+    <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-sm bg-white rounded-2xl shadow-2xl overflow-auto max-h-full">
+      <div class="text-white px-6 py-6 rounded-t-2xl text-center" style="background: linear-gradient(to right, var(--primary-dark), var(--primary));">
+        <div class="text-4xl mb-2">🔑</div>
+        <h2 class="text-xl font-black">パスワードの再設定</h2>
+        <p class="text-sm text-white/80 mt-1">新しいパスワードを入力してください</p>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1">新しいパスワード</label>
+          <input id="att-reset-pw1" type="password" placeholder="6文字以上"
+            class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2" />
+        </div>
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1">パスワード（確認）</label>
+          <input id="att-reset-pw2" type="password" placeholder="もう一度入力"
+            class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2" />
+        </div>
+        <div id="att-reset-pw-status" class="hidden"></div>
+        <button onclick="handleResetPassword()"
+          class="w-full text-white font-black py-3 rounded-xl transition-colors" style="background: var(--primary);">
+          パスワードを更新する
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ サブスク切れモーダル ══════════════════════════════════════════ -->
+  <div id="att-subscription-modal" class="fixed inset-0 z-[200] hidden">
+    <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
+    <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-sm bg-white rounded-2xl shadow-2xl overflow-auto max-h-full">
+      <div class="bg-gradient-to-r from-gray-700 to-gray-600 text-white px-6 py-6 rounded-t-2xl text-center">
+        <div class="text-4xl mb-2">⚠️</div>
+        <h2 class="text-xl font-black">ご利用には契約が必要です</h2>
+      </div>
+      <div class="p-6 space-y-4 text-center">
+        <p class="text-gray-600 text-sm">現在、有効なサブスクリプションがありません。</p>
+        <p class="text-gray-600 text-sm">お申し込みはお問い合わせください。</p>
+        <button onclick="handleLogout()"
+          class="w-full border border-gray-300 text-gray-600 font-bold py-3 rounded-xl hover:bg-gray-50 transition-colors mt-2">
+          ログアウト
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ お知らせポップアップ ══════════════════════════════════════════ -->
+  <div id="notif-popup" class="fixed inset-0 z-[210] hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeNotificationPopup()"></div>
+    <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+      <div class="text-white px-5 py-4 flex items-center justify-between shrink-0" style="background: linear-gradient(to right, var(--primary-dark), var(--primary));">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">📢</span>
+          <h2 class="text-base font-black">お知らせ</h2>
+        </div>
+        <button type="button" onclick="closeNotificationPopup()" class="text-white/70 hover:text-white text-2xl leading-none">×</button>
+      </div>
+      <ul id="notif-popup-list" class="overflow-y-auto flex-1 px-4 py-2 space-y-0"></ul>
+      <div class="px-4 py-3 border-t border-gray-100 shrink-0">
+        <button type="button" onclick="closeNotificationPopup()"
+          class="w-full py-2.5 rounded-xl text-white font-bold text-sm transition-colors"
+          style="background: var(--primary);">確認しました</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
