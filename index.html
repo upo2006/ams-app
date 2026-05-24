@@ -2566,11 +2566,12 @@
   function tpSetAmPm(val) {
     tpAmPm = val;
     updateTpAmPmDisplay();
-    if (val === '午前' || val === '午後' || val === '終日') {
+    if (val === '午前' || val === '午後') {
       document.getElementById('ev-time').value = val;
       updateEvTimeBtn();
       closeTimePicker();
     }
+    // 「終日」は即座に閉じず、「設定」ボタンで確定する（集合時間設定を妨げないため）
   }
 
   function updateTpAmPmDisplay() {
