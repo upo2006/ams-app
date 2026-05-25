@@ -1759,12 +1759,23 @@
     document.getElementById('detail-resp-label').textContent = '📋 回答を確認';
     document.getElementById('parent-resp-label').textContent = '📊 結果を見る';
     document.getElementById('detail-modal').classList.remove('hidden');
+    history.pushState({ modal: 'detail' }, '');
   }
 
+  let _detailHistoryPushed = false;
   function closeDetailModal() {
     document.getElementById('detail-modal').classList.add('hidden');
     currentDetailEvent = null;
+    if (history.state?.modal === 'detail') history.back();
   }
+
+  window.addEventListener('popstate', () => {
+    const modal = document.getElementById('detail-modal');
+    if (modal && !modal.classList.contains('hidden')) {
+      modal.classList.add('hidden');
+      currentDetailEvent = null;
+    }
+  });
   function editCurrentEvent() {
     if (!currentDetailEvent) return;
     const id = currentDetailEvent.id;
