@@ -856,6 +856,12 @@
     if (i >= 0) _mStack.splice(i, 1);
     if (!_mPopping && history.state?._mid === id) history.back();
   }
+  // 別モーダルへ遷移するとき：history.back()を呼ばずスタックと履歴状態だけ消す
+  function _removeFromStack(id) {
+    const i = _mStack.lastIndexOf(id);
+    if (i >= 0) _mStack.splice(i, 1);
+    if (history.state?._mid === id) history.replaceState(null, '');
+  }
   const _mCleanup = {
     'detail-modal': () => { currentDetailEvent = null; },
   };
@@ -1797,15 +1803,15 @@
     document.getElementById('detail-modal').classList.remove('hidden');
   }
 
-  function closeDetailModal() {
+  function closeDetailModal(suppressHistory = false) {
     document.getElementById('detail-modal').classList.add('hidden');
     currentDetailEvent = null;
-    _notifyClose('detail-modal');
+    suppressHistory ? _removeFromStack('detail-modal') : _notifyClose('detail-modal');
   }
   function editCurrentEvent() {
     if (!currentDetailEvent) return;
     const id = currentDetailEvent.id;
-    closeDetailModal();
+    closeDetailModal(true);
     openEventModal(id);
   }
   async function deleteCurrentEvent() {
@@ -1814,7 +1820,7 @@
     if (!confirm(`「${ev.title}」を削除しますか？`)) return;
     try {
       await supabaseClient.from(TABLE_EVENTS).delete().eq('id', ev.id);
-      closeDetailModal();
+      closeDetailModal(true);
       loadEvents();
     } catch(e) { alert('削除に失敗しました'); }
   }
@@ -1824,7 +1830,7 @@
     const ev = currentDetailEvent;
     if (!ev) return;
     if (!supabaseClient) { alert('接続設定が見つかりません'); return; }
-    closeDetailModal();
+    closeDetailModal(true);
 
     // ヘッダー情報（showParentResultsと同じ形式）
     const _catTitle = ev.category ? `${escHtml(ev.category)} / ${escHtml(ev.title)}` : escHtml(ev.title);
@@ -2017,7 +2023,7 @@
   async function showParentResults() {
     const ev = currentDetailEvent;
     if (!ev || !supabaseClient) return;
-    closeDetailModal();
+    closeDetailModal(true);
 
     // ヘッダー情報（データ取得前に確定できる部分）
     const _catTitle = ev.category ? `${escHtml(ev.category)} / ${escHtml(ev.title)}` : escHtml(ev.title);
@@ -2452,7 +2458,7 @@
   async function viewResponses() {
     const ev = currentDetailEvent;
     if (!ev || !supabaseClient) return;
-    closeDetailModal();
+    closeDetailModal(true);
 
     // モーダルを先に開いてローディング
     // カテゴリー / タイトル
