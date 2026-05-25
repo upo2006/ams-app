@@ -454,14 +454,21 @@
           <span class="text-base">🏃</span>
         </button>
       </div>
-      <div>
-        <label class="block text-gray-700 text-xs font-bold mb-1">ユニフォーム</label>
-        <input type="text" id="ev-uniform" placeholder="例：赤ユニフォーム"
-          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-gray-700 text-xs font-bold mb-1">ユニフォーム</label>
+          <input type="text" id="ev-uniform" placeholder="例：赤ユニフォーム"
+            class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+        </div>
+        <div>
+          <label class="block text-gray-700 text-xs font-bold mb-1">移動手段</label>
+          <input type="text" id="ev-transport" placeholder="例：車"
+            class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+        </div>
       </div>
       <div>
-        <label class="block text-gray-700 text-xs font-bold mb-1">移動手段</label>
-        <input type="text" id="ev-transport" placeholder="例：車"
+        <label class="block text-gray-700 text-xs font-bold mb-1">詳細</label>
+        <input type="text" id="ev-detail" placeholder="リンクまたはメモを入力"
           class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
       </div>
       <div>
@@ -1732,7 +1739,16 @@
     document.getElementById('detail-info').innerHTML = `<div style="display:inline-grid;grid-template-columns:auto auto;gap:2px 12px">${_gi}</div>`;
 
     const memoEl = document.getElementById('detail-memo');
-    if (ev.memo) { memoEl.textContent = '📝 ' + ev.memo; memoEl.classList.remove('hidden'); }
+    let memoHtml = '';
+    if (ev.detail) {
+      const isUrl = /^https?:\/\//i.test(ev.detail.trim());
+      memoHtml += isUrl
+        ? `🔗 <a href="${escHtml(ev.detail.trim())}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline break-all">${escHtml(ev.detail.trim())}</a>`
+        : `🔗 ${escHtml(ev.detail)}`;
+      memoHtml += '<br>';
+    }
+    if (ev.memo) { memoHtml += '📝 ' + escHtml(ev.memo); }
+    if (memoHtml) { memoEl.innerHTML = memoHtml; memoEl.classList.remove('hidden'); }
     else memoEl.classList.add('hidden');
 
     // 管理者ボタン表示
@@ -2767,10 +2783,11 @@
         document.getElementById('ev-meetup').value    = ev.meetup || '';
         document.getElementById('ev-uniform').value   = ev.uniform || '';
         document.getElementById('ev-transport').value = ev.transport || '';
+        document.getElementById('ev-detail').value    = ev.detail || '';
         document.getElementById('ev-memo').value      = ev.memo || '';
       }
     } else {
-      ['ev-title','ev-location','ev-meetup','ev-uniform','ev-transport','ev-memo'].forEach(fid => { document.getElementById(fid).value = ''; });
+      ['ev-title','ev-location','ev-meetup','ev-uniform','ev-transport','ev-detail','ev-memo'].forEach(fid => { document.getElementById(fid).value = ''; });
       document.getElementById('ev-time').value     = '';
       document.getElementById('ev-date').value     = '';
       document.getElementById('ev-category').value = '';
@@ -2805,6 +2822,7 @@
         meetup:     document.getElementById('ev-meetup').value.trim()     || null,
         uniform:    document.getElementById('ev-uniform').value.trim()    || null,
         transport:  document.getElementById('ev-transport').value.trim()  || null,
+        detail:     document.getElementById('ev-detail').value.trim()     || null,
         memo:       document.getElementById('ev-memo').value.trim()       || null,
       };
       const { error } = editId
