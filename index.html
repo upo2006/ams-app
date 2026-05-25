@@ -540,6 +540,11 @@
           <span id="parent-resp-label">📊 結果を見る</span>
         </button>
       </div>
+      <!-- 詳細リンク -->
+      <a id="detail-link-btn" href="#" target="_blank" rel="noopener noreferrer"
+        class="hidden w-full flex items-center justify-center gap-1.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 font-bold py-2 rounded-xl text-xs transition-colors border border-yellow-200">
+        🔗 詳細
+      </a>
       <!-- カレンダーに追加 -->
       <button onclick="downloadICS()"
         class="w-full flex items-center justify-center gap-1.5 bg-gray-50 hover:bg-gray-100 text-gray-500 font-bold py-2 rounded-xl text-xs transition-colors border border-gray-200">
@@ -1739,17 +1744,17 @@
     document.getElementById('detail-info').innerHTML = `<div style="display:inline-grid;grid-template-columns:auto auto;gap:2px 12px">${_gi}</div>`;
 
     const memoEl = document.getElementById('detail-memo');
-    let memoHtml = '';
-    if (ev.detail) {
-      const isUrl = /^https?:\/\//i.test(ev.detail.trim());
-      memoHtml += isUrl
-        ? `<a href="${escHtml(ev.detail.trim())}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg">🔗 詳細</a>`
-        : `🔗 ${escHtml(ev.detail)}`;
-      memoHtml += '<br>';
-    }
-    if (ev.memo) { memoHtml += '📝 ' + escHtml(ev.memo); }
-    if (memoHtml) { memoEl.innerHTML = memoHtml; memoEl.classList.remove('hidden'); }
+    if (ev.memo) { memoEl.textContent = '📝 ' + ev.memo; memoEl.classList.remove('hidden'); }
     else memoEl.classList.add('hidden');
+
+    const linkBtn = document.getElementById('detail-link-btn');
+    if (ev.detail && /^https?:\/\//i.test(ev.detail.trim())) {
+      linkBtn.href = ev.detail.trim();
+      linkBtn.classList.remove('hidden');
+    } else {
+      linkBtn.href = '#';
+      linkBtn.classList.add('hidden');
+    }
 
     // 管理者ボタン表示
     document.getElementById('detail-admin-btns').classList.toggle('hidden', !isAdmin);
