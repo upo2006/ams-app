@@ -313,7 +313,7 @@
         <h2 class="text-xl font-black">⚙️ 接続設定</h2>
         <p class="text-sm text-white/80 mt-1">Supabaseの接続情報を入力してください</p>
       </div>
-      <button onclick="document.getElementById('setup-modal').classList.add('hidden')" class="text-white/70 hover:text-white text-2xl leading-none ml-3 shrink-0">×</button>
+      <button onclick="closeSetupModal()" class="text-white/70 hover:text-white text-2xl leading-none ml-3 shrink-0">×</button>
     </div>
     <div class="p-6 space-y-4">
       <div>
@@ -844,6 +844,30 @@
   const TRANSPORT_COLOR = { '乗せて欲しい':'bg-red-100 text-red-600', '大丈夫':'bg-gray-100 text-gray-500', '未定':'bg-yellow-100 text-yellow-600' };
   const CARPOOL_COLOR   = { 'できる':'bg-blue-100 text-blue-700', '難しい':'bg-gray-100 text-gray-500', '未定':'bg-yellow-100 text-yellow-600' };
 
+  // ─── 戻るボタン対応 ─────────────────────────────────────────────
+  const _mStack = [];
+  let _mPopping = false;
+  function _pushM(id) {
+    _mStack.push(id);
+    history.pushState({ _mid: id }, '');
+  }
+  function _notifyClose(id) {
+    const i = _mStack.lastIndexOf(id);
+    if (i >= 0) _mStack.splice(i, 1);
+    if (!_mPopping && history.state?._mid === id) history.back();
+  }
+  const _mCleanup = {
+    'detail-modal': () => { currentDetailEvent = null; },
+  };
+  window.addEventListener('popstate', () => {
+    const id = _mStack.pop();
+    if (!id) return;
+    _mPopping = true;
+    document.getElementById(id)?.classList.add('hidden');
+    _mCleanup[id]?.();
+    _mPopping = false;
+  });
+
   // ─── 状態 ────────────────────────────────────────────────────────────
   let supabaseClient = null;
   let events = [];
@@ -995,10 +1019,12 @@
   function openTeamManager() {
     document.getElementById('settings-menu')?.classList.add('hidden');
     renderCalTeamList();
+    _pushM('cal-team-manager-modal');
     document.getElementById('cal-team-manager-modal').classList.remove('hidden');
   }
   function closeTeamManager() {
     document.getElementById('cal-team-manager-modal').classList.add('hidden');
+    _notifyClose('cal-team-manager-modal');
   }
   function renderCalTeamList() {
     const teams    = JSON.parse(localStorage.getItem(STORAGE_TEAMS_KEY) || '[]');
@@ -1134,7 +1160,13 @@
       calUpdateColorPanelUI(color);
     }
     document.getElementById('setup-status').classList.add('hidden');
+    _pushM('setup-modal');
     document.getElementById('setup-modal').classList.remove('hidden');
+  }
+
+  function closeSetupModal() {
+    document.getElementById('setup-modal').classList.add('hidden');
+    _notifyClose('setup-modal');
   }
 
   function calUpdateColorPanelUI(hex) {
@@ -1216,7 +1248,7 @@
     initSupabase();
     setStatus(statusEl, '✅ 接続OK！保存しました', 'success');
     setTimeout(async () => {
-      document.getElementById('setup-modal').classList.add('hidden');
+      closeSetupModal();
       events = [];
       // セットアップガイドから来た場合：サブスク確認済みなので管理者権限を付与
       if (isFromSetupGuide) {
@@ -1243,10 +1275,11 @@
     document.getElementById('parent-link-base-url').value = base;
     document.getElementById('parent-link-result').classList.add('hidden');
     document.getElementById('parent-link-copy-msg').classList.add('hidden');
+    _pushM('parent-link-modal');
     document.getElementById('parent-link-modal').classList.remove('hidden');
     if (base) updateParentLink();
   }
-  function closeParentLinkModal() { document.getElementById('parent-link-modal').classList.add('hidden'); }
+  function closeParentLinkModal() { document.getElementById('parent-link-modal').classList.add('hidden'); _notifyClose('parent-link-modal'); }
   function updateParentLink() {
     const base   = document.getElementById('parent-link-base-url')?.value.trim();
     const result = document.getElementById('parent-link-result');
@@ -1282,10 +1315,11 @@
     document.getElementById('admin-link-base-url').value = base;
     document.getElementById('admin-link-result').classList.add('hidden');
     document.getElementById('admin-link-copy-msg').classList.add('hidden');
+    _pushM('admin-link-modal');
     document.getElementById('admin-link-modal').classList.remove('hidden');
     if (base) updateAdminLink();
   }
-  function closeAdminLinkModal() { document.getElementById('admin-link-modal').classList.add('hidden'); }
+  function closeAdminLinkModal() { document.getElementById('admin-link-modal').classList.add('hidden'); _notifyClose('admin-link-modal'); }
   function updateAdminLink() {
     const base   = document.getElementById('admin-link-base-url')?.value.trim();
     const result = document.getElementById('admin-link-result');
@@ -1343,9 +1377,10 @@
     document.getElementById('login-status').classList.add('hidden');
     document.getElementById('login-email').value = '';
     document.getElementById('login-password').value = '';
+    _pushM('login-modal');
     document.getElementById('login-modal').classList.remove('hidden');
   }
-  function closeLoginModal() { document.getElementById('login-modal').classList.add('hidden'); }
+  function closeLoginModal() { document.getElementById('login-modal').classList.add('hidden'); _notifyClose('login-modal'); }
 
   function togglePw() {
     const i = document.getElementById('login-password');
@@ -1758,24 +1793,15 @@
     const respCount = ev[TABLE_RESPONSES]?.[0]?.count ?? 0;
     document.getElementById('detail-resp-label').textContent = '📋 回答を確認';
     document.getElementById('parent-resp-label').textContent = '📊 結果を見る';
+    _pushM('detail-modal');
     document.getElementById('detail-modal').classList.remove('hidden');
-    history.pushState({ modal: 'detail' }, '');
   }
 
-  let _detailHistoryPushed = false;
   function closeDetailModal() {
     document.getElementById('detail-modal').classList.add('hidden');
     currentDetailEvent = null;
-    if (history.state?.modal === 'detail') history.back();
+    _notifyClose('detail-modal');
   }
-
-  window.addEventListener('popstate', () => {
-    const modal = document.getElementById('detail-modal');
-    if (modal && !modal.classList.contains('hidden')) {
-      modal.classList.add('hidden');
-      currentDetailEvent = null;
-    }
-  });
   function editCurrentEvent() {
     if (!currentDetailEvent) return;
     const id = currentDetailEvent.id;
@@ -1818,20 +1844,25 @@
     }
 
     modal.innerHTML = `
-      <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="document.getElementById('cal-respond-popup-modal').classList.add('hidden')"></div>
+      <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeRespondPopup()"></div>
       <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" style="max-height:calc(100vh - 2rem)">
         <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-5 py-4 rounded-t-2xl flex items-start justify-between shrink-0">
           <div class="min-w-0 flex-1">
             <div class="text-xl font-black leading-tight mb-1">${_catTitle}</div>
             <div class="text-xs text-white/80"><div style="display:inline-grid;grid-template-columns:auto auto;gap:1px 12px">${_gridItems}</div></div>
           </div>
-          <button onclick="document.getElementById('cal-respond-popup-modal').classList.add('hidden')" class="text-white/70 hover:text-white text-2xl leading-none shrink-0 ml-3">×</button>
+          <button onclick="closeRespondPopup()" class="text-white/70 hover:text-white text-2xl leading-none shrink-0 ml-3">×</button>
         </div>
         <div class="overflow-y-auto flex-1" id="${cId}"></div>
       </div>`;
 
+    _pushM('cal-respond-popup-modal');
     modal.classList.remove('hidden');
     calRenderRespondForm(ev.id, '', cId);
+  }
+  function closeRespondPopup() {
+    document.getElementById('cal-respond-popup-modal').classList.add('hidden');
+    _notifyClose('cal-respond-popup-modal');
   }
 
   // ─── 回答フォーム（カレンダー内蔵） ─────────────────────────────────────
@@ -2005,19 +2036,20 @@
       document.body.appendChild(modal);
     }
     modal.innerHTML = `
-      <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="document.getElementById('parent-result-modal').classList.add('hidden')"></div>
+      <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeParentResultModal()"></div>
       <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" style="max-height:calc(100vh - 2rem)">
         <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-5 py-4 rounded-t-2xl flex items-start justify-between shrink-0">
           <div class="min-w-0 flex-1">
             <div class="text-xl font-black leading-tight mb-1">${_catTitle}</div>
             <div class="text-xs text-white/80"><div style="display:inline-grid;grid-template-columns:auto auto;gap:1px 12px">${_gridItems}</div></div>
           </div>
-          <button onclick="document.getElementById('parent-result-modal').classList.add('hidden')" class="text-white/70 hover:text-white text-2xl leading-none shrink-0 ml-3">×</button>
+          <button onclick="closeParentResultModal()" class="text-white/70 hover:text-white text-2xl leading-none shrink-0 ml-3">×</button>
         </div>
         <div id="parent-result-body" class="flex-1 flex items-center justify-center py-12">
           <div class="w-8 h-8 border-4 border-red-200 border-t-red-500 rounded-full animate-spin"></div>
         </div>
       </div>`;
+    _pushM('parent-result-modal');
     modal.classList.remove('hidden');
 
     // 回答・選手名を並列取得
@@ -2064,6 +2096,10 @@
     modal.querySelectorAll('tbody tr[data-resp]').forEach(tr => {
       tr.addEventListener('click', () => showCalResponseDetail(JSON.parse(tr.dataset.resp)));
     });
+  }
+  function closeParentResultModal() {
+    document.getElementById('parent-result-modal').classList.add('hidden');
+    _notifyClose('parent-result-modal');
   }
 
   // ─── 選手管理 ────────────────────────────────────────────────────────
@@ -2120,11 +2156,13 @@
   function openCalPlayerListModal() {
     document.getElementById('settings-menu')?.classList.add('hidden');
     calPlayerAccordionState = {};
+    _pushM('cal-player-list-modal');
     document.getElementById('cal-player-list-modal').classList.remove('hidden');
     loadCalPlayers();
   }
   function closeCalPlayerListModal() {
     document.getElementById('cal-player-list-modal').classList.add('hidden');
+    _notifyClose('cal-player-list-modal');
   }
 
   function renderCalPlayerList() {
@@ -2209,10 +2247,12 @@
       document.getElementById('cal-player-entry-year').value    = getCurrentFiscalYearNum();
       document.getElementById('cal-player-base-category').value = 'U7';
     }
+    _pushM('cal-player-modal');
     document.getElementById('cal-player-modal').classList.remove('hidden');
   }
   function closeCalPlayerModal() {
     document.getElementById('cal-player-modal').classList.add('hidden');
+    _notifyClose('cal-player-modal');
   }
 
   async function saveCalPlayer() {
@@ -2248,11 +2288,13 @@
 
   function openCalDeletePlayerModal(p) {
     calPlayerToDelete = p;
+    _pushM('cal-player-delete-modal');
     document.getElementById('cal-player-delete-modal').classList.remove('hidden');
   }
   function closeCalDeletePlayerModal() {
     calPlayerToDelete = null;
     document.getElementById('cal-player-delete-modal').classList.add('hidden');
+    _notifyClose('cal-player-delete-modal');
   }
   async function handleCalDeletePlayer() {
     if (!calPlayerToDelete) return;
@@ -2303,9 +2345,11 @@
 
   function closeResponseModal() {
     document.getElementById('response-modal').classList.add('hidden');
+    _notifyClose('response-modal');
   }
   function closeCalMemoPopup() {
     document.getElementById('cal-memo-popup').classList.add('hidden');
+    _notifyClose('cal-memo-popup');
   }
 
   const CAL_SORT_ORDER = {
@@ -2401,6 +2445,7 @@
         <span class="text-xs font-medium text-gray-400 block mb-1">備考</span>
         <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap min-h-[1.5rem]">${escHtml(d.notes || '')}</p>
       </div>`;
+    _pushM('cal-memo-popup');
     document.getElementById('cal-memo-popup').classList.remove('hidden');
   }
 
@@ -2442,6 +2487,7 @@
     document.getElementById('cal-response-list').innerHTML =
       '<p class="text-center text-gray-400 text-sm py-8">読み込み中…</p>';
     document.getElementById('cal-no-responses').classList.add('hidden');
+    _pushM('response-modal');
     document.getElementById('response-modal').classList.remove('hidden');
     calDetailResponses = [];
     calDetailSortCol   = null;
@@ -2535,11 +2581,13 @@
     if (tpCursor < 0) tpCursor = 4;
     updateTpDisplay();
     updateTpAmPmDisplay();
+    _pushM('time-picker-modal');
     document.getElementById('time-picker-modal').classList.remove('hidden');
   }
 
   function closeTimePicker() {
     document.getElementById('time-picker-modal').classList.add('hidden');
+    _notifyClose('time-picker-modal');
   }
 
   function tpMoveCursor(row, pos) {
@@ -2700,11 +2748,13 @@
       }
     }
     mtpRender();
+    _pushM('meetup-picker-modal');
     document.getElementById('meetup-picker-modal').classList.remove('hidden');
   }
 
   function closeMeetupTimePicker() {
     document.getElementById('meetup-picker-modal').classList.add('hidden');
+    _notifyClose('meetup-picker-modal');
   }
 
   function mtpInput(digit) {
@@ -2806,10 +2856,12 @@
     updateEvTimeBtn();
     updateEvMeetupBtn();
     document.getElementById('event-modal-status').classList.add('hidden');
+    _pushM('create-event-modal');
     document.getElementById('create-event-modal').classList.remove('hidden');
   }
   function closeEventModal() {
     document.getElementById('create-event-modal').classList.add('hidden');
+    _notifyClose('create-event-modal');
   }
 
   async function saveEvent() {
