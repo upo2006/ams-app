@@ -687,11 +687,11 @@
       <div class="flex items-center gap-2">
         <span class="text-xs font-bold text-red-500 w-10 shrink-0">時間</span>
         <div class="flex items-center gap-1.5">
-          <div id="mtp-d0" class="tp-digit active">—</div>
-          <div id="mtp-d1" class="tp-digit">—</div>
+          <div id="mtp-d0" class="tp-digit cursor-pointer" onclick="mtpMoveCursor(0)">—</div>
+          <div id="mtp-d1" class="tp-digit cursor-pointer" onclick="mtpMoveCursor(1)">—</div>
           <span class="text-xl font-black text-gray-300 mx-0.5">:</span>
-          <div id="mtp-d2" class="tp-digit">—</div>
-          <div id="mtp-d3" class="tp-digit">—</div>
+          <div id="mtp-d2" class="tp-digit cursor-pointer" onclick="mtpMoveCursor(2)">—</div>
+          <div id="mtp-d3" class="tp-digit cursor-pointer" onclick="mtpMoveCursor(3)">—</div>
         </div>
       </div>
     </div>
@@ -2635,6 +2635,11 @@
   // ─── 集合時間ピッカー ────────────────────────────────────────────────
   let mtpDigits = ['','','',''];
   let mtpCursor = 0;
+
+  function mtpMoveCursor(pos) {
+    mtpCursor = pos;
+    mtpRender();
+  }
 
   function mtpRender() {
     for (let i = 0; i < 4; i++) {
