@@ -1743,7 +1743,7 @@
     if (ev.detail) {
       const isUrl = /^https?:\/\//i.test(ev.detail.trim());
       memoHtml += isUrl
-        ? `🔗 <a href="${escHtml(ev.detail.trim())}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">詳細</a>`
+        ? `<a href="${escHtml(ev.detail.trim())}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg">🔗 詳細</a>`
         : `🔗 ${escHtml(ev.detail)}`;
       memoHtml += '<br>';
     }
