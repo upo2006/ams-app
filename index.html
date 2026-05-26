@@ -737,6 +737,29 @@
 </div>
 
 
+<!-- ══ シリーズ選択ダイアログ ═════════════════════════════════════════ -->
+<div id="series-choice-modal" class="hidden fixed inset-0 z-[230] flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeSeriesChoiceModal()"></div>
+  <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden">
+    <div class="px-5 pt-5 pb-5 space-y-3">
+      <h3 id="series-choice-title" class="text-sm font-black text-gray-800 text-center"></h3>
+      <button onclick="confirmSeriesChoice('single')"
+        class="w-full bg-gray-50 hover:bg-gray-100 text-gray-800 font-bold py-3 rounded-xl text-sm transition-colors border border-gray-200">
+        このイベントのみ
+      </button>
+      <button onclick="confirmSeriesChoice('all')"
+        class="w-full bg-red-50 hover:bg-red-100 text-red-700 font-bold py-3 rounded-xl text-sm transition-colors border border-red-200">
+        繰り返し全て
+      </button>
+      <button onclick="closeSeriesChoiceModal()"
+        class="w-full bg-gray-100 hover:bg-gray-200 text-gray-500 font-bold py-2.5 rounded-xl text-sm transition-colors">
+        キャンセル
+      </button>
+    </div>
+  </div>
+</div>
+
+
 <!-- ══ 繰り返し設定ポップアップ ══════════════════════════════════════ -->
 <div id="repeat-modal" class="hidden fixed inset-0 z-[220] flex items-center justify-center p-4">
   <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeRepeatModal()"></div>
@@ -2017,18 +2040,73 @@ window.addEventListener('message',function(e){
     currentDetailEvent = null;
     suppressHistory ? _removeFromStack('detail-modal') : _notifyClose('detail-modal');
   }
+  // ─── シリーズ選択 ────────────────────────────────────────────────────
+  let _seriesAction    = ''; // 'edit' | 'delete'
+  let _editSeriesScope = ''; // 'single' | 'all'
+
+  function openSeriesChoiceModal(action) {
+    _seriesAction = action;
+    const title = document.getElementById('series-choice-title');
+    if (title) title.textContent = action === 'edit' ? 'どのイベントを編集しますか？' : 'どのイベントを削除しますか？';
+    _pushM('series-choice-modal');
+    document.getElementById('series-choice-modal').classList.remove('hidden');
+  }
+  function closeSeriesChoiceModal() {
+    document.getElementById('series-choice-modal').classList.add('hidden');
+    _removeFromStack('series-choice-modal');
+  }
+  function confirmSeriesChoice(scope) {
+    const ev = currentDetailEvent;
+    closeSeriesChoiceModal();
+    if (_seriesAction === 'edit') {
+      _editSeriesScope = scope;
+      closeDetailModal(true);
+      openEventModal(ev.id);
+    } else {
+      scope === 'all' ? doDeleteAll(ev) : doDeleteSingle(ev);
+    }
+  }
+
   function editCurrentEvent() {
     if (!currentDetailEvent) return;
-    const id = currentDetailEvent.id;
-    closeDetailModal(true);
-    openEventModal(id);
-  }
-  async function deleteCurrentEvent() {
     const ev = currentDetailEvent;
+    if (ev.series_id) {
+      openSeriesChoiceModal('edit');
+    } else {
+      _editSeriesScope = 'single';
+      closeDetailModal(true);
+      openEventModal(ev.id);
+    }
+  }
+
+  function deleteCurrentEvent() {
+    if (!currentDetailEvent) return;
+    if (currentDetailEvent.series_id) {
+      openSeriesChoiceModal('delete');
+    } else {
+      doDeleteSingle(currentDetailEvent);
+    }
+  }
+
+  async function doDeleteSingle(ev) {
+    ev = ev || currentDetailEvent;
     if (!ev) return;
     if (!confirm(`「${ev.title}」を削除しますか？`)) return;
     try {
       await supabaseClient.from(TABLE_EVENTS).delete().eq('id', ev.id);
+      closeDetailModal(true);
+      loadEvents();
+    } catch(e) { alert('削除に失敗しました'); }
+  }
+
+  async function doDeleteAll(ev) {
+    ev = ev || currentDetailEvent;
+    if (!ev) return;
+    if (!ev.series_id) { doDeleteSingle(ev); return; }
+    const count = events.filter(e => e.series_id === ev.series_id).length;
+    if (!confirm(`繰り返し ${count} 件を全て削除しますか？`)) return;
+    try {
+      await supabaseClient.from(TABLE_EVENTS).delete().eq('series_id', ev.series_id);
       closeDetailModal(true);
       loadEvents();
     } catch(e) { alert('削除に失敗しました'); }
@@ -3376,17 +3454,34 @@ window.addEventListener('message',function(e){
       if (!editId && _repeatMode) {
         const repeatDates = generateRepeatDates(date);
         if (repeatDates.length === 0) { setStatus(status, '条件に合う日付がありません', 'error'); return; }
-        const payloads = repeatDates.map(d => ({ ...payload, event_date: d }));
+        const seriesId = crypto.randomUUID();
+        const payloads = repeatDates.map(d => ({ ...payload, event_date: d, series_id: seriesId }));
         const { error } = await supabaseClient.from(TABLE_EVENTS).insert(payloads);
         if (error) { setStatus(status, '保存に失敗しました: ' + error.message, 'error'); return; }
-        closeEventModal();
-        loadEvents();
-        return;
+        closeEventModal(); loadEvents(); return;
       }
-      // 通常保存（1件）
-      const { error } = editId
-        ? await supabaseClient.from(TABLE_EVENTS).update(payload).eq('id', editId)
-        : await supabaseClient.from(TABLE_EVENTS).insert(payload);
+      // 編集保存
+      if (editId) {
+        let error;
+        if (_editSeriesScope === 'all') {
+          // シリーズ全件更新（日付はそのまま）
+          const { event_date, ...payloadNoDate } = payload;
+          const curEv = events.find(e => String(e.id) === String(editId));
+          if (curEv?.series_id) {
+            ({ error } = await supabaseClient.from(TABLE_EVENTS).update(payloadNoDate).eq('series_id', curEv.series_id));
+          } else {
+            ({ error } = await supabaseClient.from(TABLE_EVENTS).update(payload).eq('id', editId));
+          }
+        } else {
+          // このイベントのみ（シリーズから切り離す）
+          ({ error } = await supabaseClient.from(TABLE_EVENTS).update({ ...payload, series_id: null }).eq('id', editId));
+        }
+        _editSeriesScope = '';
+        if (error) { setStatus(status, '保存に失敗しました: ' + error.message, 'error'); return; }
+        closeEventModal(); loadEvents(); return;
+      }
+      // 新規保存（1件）
+      const { error } = await supabaseClient.from(TABLE_EVENTS).insert(payload);
       if (error) { setStatus(status, '保存に失敗しました: ' + error.message, 'error'); return; }
       closeEventModal();
       loadEvents();
