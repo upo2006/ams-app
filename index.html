@@ -3142,7 +3142,7 @@ window.addEventListener('message',function(e){
         document.body.style.margin = '0';
         document.body.style.padding = '0';
         const appEl = document.getElementById('app');
-        if (appEl) appEl.style.minHeight = 'unset';
+        if (appEl) { appEl.style.minHeight = '0'; appEl.style.height = 'auto'; }
         // 上下余白を 8px に設定（pb-4 クラスを除去してから上書き）
         const mainEl = document.querySelector('main');
         if (mainEl) {
@@ -3151,12 +3151,15 @@ window.addEventListener('message',function(e){
           mainEl.style.setProperty('padding-bottom', '8px', 'important');
         }
         await loadEvents();
-        // ResizeObserver で高さ変化を親ページに通知
+        document.getElementById('loading-screen')?.classList.add('hidden');
+        // ResizeObserver で高さ変化を親ページに通知（main の高さを基準にする）
         const sendHeight = () => {
-          window.parent.postMessage({ type: 'ams-resize', height: document.body.scrollHeight }, '*');
+          const target = document.querySelector('main');
+          const h = target ? target.scrollHeight : document.body.scrollHeight;
+          window.parent.postMessage({ type: 'ams-resize', height: h }, '*');
         };
         sendHeight();
-        new ResizeObserver(sendHeight).observe(document.body);
+        new ResizeObserver(sendHeight).observe(mainEl || document.body);
         return;
       }
 
