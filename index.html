@@ -116,6 +116,7 @@
             <button type="button" id="menu-player-btn" onclick="openCalPlayerListModal()" class="hidden w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 font-bold">👤 選手管理</button>
             <button type="button" id="menu-admin-link-btn" onclick="openAdminLinkModal()" class="hidden w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 text-red-600 font-bold">🔧 コーチリンク</button>
             <button type="button" id="menu-parent-link-btn" onclick="openParentLinkModal()" class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 text-green-600 font-bold">🔗 ファミリーリンク</button>
+            <button type="button" id="menu-embed-link-btn" onclick="openEmbedLinkModal()" class="hidden w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 text-blue-600 font-bold">🖥️ 埋め込みリンク</button>
             <button type="button" id="menu-logout-btn" onclick="handleLogout()" class="hidden w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-t border-gray-100 font-bold">🚪 ログアウト</button>
           </div>
         </div>
@@ -299,6 +300,52 @@
         <p class="font-bold">⚠️ セキュリティについて</p>
         <p>このリンクにはSupabase接続情報が含まれます。信頼できる管理者のみに共有してください。リンクを開いた人はイベントの追加・編集・削除が可能です。</p>
       </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 埋め込みリンクモーダル ══════════════════════════════════════════ -->
+<div id="embed-link-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeEmbedLinkModal()"></div>
+  <div class="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden">
+    <div class="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-5 py-4 flex items-center justify-between">
+      <div>
+        <h2 class="text-lg font-black">🖥️ 埋め込みリンク</h2>
+        <p class="text-xs text-white/80 mt-0.5">HPへの埋め込み用リンク</p>
+      </div>
+      <button onclick="closeEmbedLinkModal()" class="text-white/70 hover:text-white text-2xl leading-none ml-3 shrink-0">×</button>
+    </div>
+    <div class="p-5 space-y-4">
+      <div>
+        <label class="block text-xs font-bold text-gray-500 mb-1">ベースURL</label>
+        <input type="url" id="embed-link-base-url" placeholder="https://example.com/ams-app/"
+          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div id="embed-link-result" class="hidden space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-gray-500 mb-1">埋め込みリンク</label>
+          <div class="flex gap-2">
+            <input type="text" id="embed-link-url" readonly
+              class="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono text-gray-600 min-w-0">
+            <button onclick="copyEmbedLink()" class="shrink-0 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition-colors">コピー</button>
+          </div>
+          <p id="embed-link-copy-msg" class="hidden text-xs text-green-600 font-bold mt-1">✅ コピーしました</p>
+        </div>
+        <div class="bg-gray-50 border border-gray-200 rounded-xl p-3">
+          <p class="text-xs font-bold text-gray-600 mb-1">iframe 埋め込みコード</p>
+          <div class="flex gap-2">
+            <textarea id="embed-iframe-code" readonly rows="3"
+              class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono text-gray-600 resize-none min-w-0"></textarea>
+            <button onclick="copyEmbedIframe()" class="shrink-0 self-start bg-gray-600 hover:bg-gray-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition-colors">コピー</button>
+          </div>
+          <p id="embed-iframe-copy-msg" class="hidden text-xs text-green-600 font-bold mt-1">✅ コピーしました</p>
+        </div>
+      </div>
+      <button onclick="generateEmbedLink()"
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors text-sm">
+        🖥️ 埋め込みリンクを生成
+      </button>
     </div>
   </div>
 </div>
@@ -1326,6 +1373,58 @@
     if (base) updateAdminLink();
   }
   function closeAdminLinkModal() { document.getElementById('admin-link-modal').classList.add('hidden'); _notifyClose('admin-link-modal'); }
+
+  // ─── 埋め込みリンク発行 ────────────────────────────────────────────────
+  function openEmbedLinkModal() {
+    document.getElementById('settings-menu')?.classList.add('hidden');
+    const base = getBaseUrl();
+    document.getElementById('embed-link-base-url').value = base;
+    document.getElementById('embed-link-result').classList.add('hidden');
+    document.getElementById('embed-link-copy-msg').classList.add('hidden');
+    document.getElementById('embed-iframe-copy-msg').classList.add('hidden');
+    _pushM('embed-link-modal');
+    document.getElementById('embed-link-modal').classList.remove('hidden');
+  }
+
+  function closeEmbedLinkModal() {
+    document.getElementById('embed-link-modal').classList.add('hidden');
+    _notifyClose('embed-link-modal');
+  }
+
+  function generateEmbedLink() {
+    const base = document.getElementById('embed-link-base-url').value.trim();
+    const result = document.getElementById('embed-link-result');
+    if (!base) { result?.classList.add('hidden'); return; }
+    const cfg = loadConfig();
+    if (!cfg?.supabase_url || !cfg?.supabase_anon_key) { result?.classList.add('hidden'); return; }
+    const link = base.replace(/\/?$/, '') + '?view=embed#' + buildHashString(cfg);
+    document.getElementById('embed-link-url').value = link;
+    document.getElementById('embed-iframe-code').value = `<iframe src="${link}" width="100%" height="700" frameborder="0" style="border-radius:12px;"></iframe>`;
+    result?.classList.remove('hidden');
+    document.getElementById('embed-link-copy-msg')?.classList.add('hidden');
+    document.getElementById('embed-iframe-copy-msg')?.classList.add('hidden');
+  }
+
+  function copyEmbedLink() {
+    const val = document.getElementById('embed-link-url').value;
+    if (!val) return;
+    navigator.clipboard.writeText(val).then(() => {
+      const msg = document.getElementById('embed-link-copy-msg');
+      msg.classList.remove('hidden');
+      setTimeout(() => msg.classList.add('hidden'), 4000);
+    });
+  }
+
+  function copyEmbedIframe() {
+    const val = document.getElementById('embed-iframe-code').value;
+    if (!val) return;
+    navigator.clipboard.writeText(val).then(() => {
+      const msg = document.getElementById('embed-iframe-copy-msg');
+      msg.classList.remove('hidden');
+      setTimeout(() => msg.classList.add('hidden'), 4000);
+    });
+  }
+
   function updateAdminLink() {
     const base   = document.getElementById('admin-link-base-url')?.value.trim();
     const result = document.getElementById('admin-link-result');
@@ -1510,6 +1609,7 @@
     }
     document.getElementById('menu-player-btn')?.classList.toggle('hidden', !admin);
     document.getElementById('menu-admin-link-btn')?.classList.toggle('hidden', !admin);
+    document.getElementById('menu-embed-link-btn')?.classList.toggle('hidden', !admin);
     document.getElementById('menu-logout-btn')?.classList.toggle('hidden', !admin || !isSetupMode);
     // 詳細ポップアップ：管理者ボタン群
     document.getElementById('detail-admin-links')?.classList.toggle('hidden', !admin);
@@ -1532,6 +1632,7 @@
       document.getElementById('menu-team-btn')?.classList.add('hidden');
       document.getElementById('open-setup-menu-btn')?.classList.add('hidden');
       document.getElementById('menu-admin-link-btn')?.classList.add('hidden');
+      document.getElementById('menu-embed-link-btn')?.classList.add('hidden');
     }
     // ファミリーモード：コーチモードと同レイアウト（設定・新規作成は setAdminMode(false) で非表示済み）
   }
@@ -2943,6 +3044,7 @@
     try {
       const params       = new URLSearchParams(location.search);
       const isParentMode = params.get('view') === 'parent';
+      const isEmbedMode  = params.get('view') === 'embed';
 
       // ハッシュから接続設定を読み込み（コーチリンク / ファミリーリンク経由）
       if (location.hash) {
@@ -3014,6 +3116,20 @@
           currentDetailEvent = targetEv;
           openParentRespond();
         }
+        return;
+      }
+
+      // 埋め込みモード（?view=embed）：ヘッダー・フッター非表示・閲覧のみ
+      if (isEmbedMode) {
+        setAdminMode(false);
+        applyModeRestrictions();
+        // ヘッダー・フッターを非表示
+        document.querySelector('header')?.classList.add('hidden');
+        document.querySelector('footer')?.classList.add('hidden');
+        // 保護者ボタン（回答する・結果を見る）を非表示
+        document.getElementById('detail-parent-btns')?.classList.add('hidden');
+        await loadEvents();
+        setTimeout(() => { fitTeamName?.(); fitSubtitle?.(); }, 50);
         return;
       }
 
