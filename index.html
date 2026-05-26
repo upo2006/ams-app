@@ -473,26 +473,17 @@
         <input type="text" id="ev-title" placeholder="例：5.10 試合"
           class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
       </div>
-      <div>
-        <label class="block text-gray-700 text-xs font-bold mb-1">日付 <span class="text-red-500">*</span></label>
-        <input type="date" id="ev-date"
-          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
-      </div>
-      <!-- 繰り返し -->
+      <!-- 日付 + 繰り返しボタン -->
       <div id="ev-repeat-section">
-        <label class="block text-gray-700 text-xs font-bold mb-1">繰り返し</label>
-        <div class="grid grid-cols-4 gap-1.5">
-          <button type="button" id="rpt-none"    onclick="setRepeat('')"        class="py-1.5 rounded-lg text-xs font-bold border transition-colors bg-red-500 text-white border-red-500">なし</button>
-          <button type="button" id="rpt-weekly"  onclick="setRepeat('weekly')"  class="py-1.5 rounded-lg text-xs font-bold border transition-colors bg-white text-gray-600 border-gray-300">毎週</button>
-          <button type="button" id="rpt-biweek"  onclick="setRepeat('biweek')"  class="py-1.5 rounded-lg text-xs font-bold border transition-colors bg-white text-gray-600 border-gray-300">隔週</button>
-          <button type="button" id="rpt-monthly" onclick="setRepeat('monthly')" class="py-1.5 rounded-lg text-xs font-bold border transition-colors bg-white text-gray-600 border-gray-300">毎月</button>
-        </div>
-        <div id="rpt-count-row" class="hidden mt-2 flex items-center gap-2">
-          <span class="text-xs text-gray-500">この日を含め</span>
-          <input type="number" id="ev-repeat-count" min="2" max="52" value="4"
-            class="w-14 bg-gray-50 border border-gray-300 rounded-lg px-2 py-1 text-sm text-center font-bold focus:outline-none focus:ring-2 focus:ring-red-500"
-            oninput="updateSaveBtnText()">
-          <span class="text-xs text-gray-500">回作成</span>
+        <label class="block text-gray-700 text-xs font-bold mb-1">日付 <span class="text-red-500">*</span></label>
+        <div class="flex gap-2">
+          <input type="date" id="ev-date"
+            class="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
+          <button type="button" id="ev-repeat-btn" onclick="openRepeatModal()"
+            class="shrink-0 bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-100 transition-colors flex items-center gap-1.5">
+            <span class="text-base">🔁</span>
+            <span id="ev-repeat-label" class="text-xs font-bold text-gray-500">なし</span>
+          </button>
         </div>
       </div>
       <div>
@@ -741,6 +732,36 @@
       <button onclick="confirmTimePicker()" class="bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-xl transition-colors">設定</button>
       <button onclick="clearTimePicker()"   class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-colors">クリア</button>
       <button onclick="closeTimePicker()"   class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-colors">戻る</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 繰り返し設定ポップアップ ══════════════════════════════════════ -->
+<div id="repeat-modal" class="hidden fixed inset-0 z-[220] flex items-end justify-center">
+  <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeRepeatModal()"></div>
+  <div class="relative w-full max-w-sm bg-white rounded-t-2xl shadow-2xl px-5 pt-5 pb-8">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-base font-black text-gray-800">🔁 繰り返し設定</h3>
+      <button onclick="closeRepeatModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+    </div>
+    <!-- パターン選択 -->
+    <div class="grid grid-cols-3 gap-2 mb-4">
+      <button type="button" id="rpt-p-none"    onclick="setRepeatMode('')"        class="py-2.5 rounded-xl text-sm font-bold border transition-colors">なし</button>
+      <button type="button" id="rpt-p-weekly"  onclick="setRepeatMode('weekly')"  class="py-2.5 rounded-xl text-sm font-bold border transition-colors">毎週</button>
+      <button type="button" id="rpt-p-monthly" onclick="setRepeatMode('monthly')" class="py-2.5 rounded-xl text-sm font-bold border transition-colors">毎月</button>
+    </div>
+    <!-- 回数入力（なし以外） -->
+    <div id="rpt-count-section" class="hidden mb-5 flex items-center gap-2">
+      <span class="text-sm text-gray-500">この日を含め</span>
+      <input type="number" id="ev-repeat-count" min="2" max="52" value="4"
+        class="w-16 bg-gray-50 border border-gray-300 rounded-lg px-2 py-2 text-sm text-center font-bold focus:outline-none focus:ring-2 focus:ring-red-500">
+      <span class="text-sm text-gray-500">回作成</span>
+    </div>
+    <!-- ボタン -->
+    <div class="grid grid-cols-2 gap-3">
+      <button onclick="closeRepeatModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-colors text-sm">キャンセル</button>
+      <button onclick="confirmRepeat()"    class="bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-xl transition-colors text-sm">設定</button>
     </div>
   </div>
 </div>
@@ -2963,42 +2984,86 @@ window.addEventListener('message',function(e){
 
   // ─── 繰り返し設定 ────────────────────────────────────────────────────
   let _repeatMode = '';
+  let _repeatCount = 4;
+  let _repeatModeTemp = '';
 
-  function setRepeat(mode) {
-    _repeatMode = mode;
-    const map = { '': 'rpt-none', 'weekly': 'rpt-weekly', 'biweek': 'rpt-biweek', 'monthly': 'rpt-monthly' };
+  function openRepeatModal() {
+    _repeatModeTemp = _repeatMode;
+    const countEl = document.getElementById('ev-repeat-count');
+    if (countEl) countEl.value = _repeatCount;
+    renderRepeatPopup();
+    _pushM('repeat-modal');
+    document.getElementById('repeat-modal').classList.remove('hidden');
+  }
+
+  function closeRepeatModal() {
+    document.getElementById('repeat-modal').classList.add('hidden');
+    _removeFromStack('repeat-modal');
+  }
+
+  function setRepeatMode(mode) {
+    _repeatModeTemp = mode;
+    renderRepeatPopup();
+  }
+
+  function renderRepeatPopup() {
+    const map = { '': 'rpt-p-none', 'weekly': 'rpt-p-weekly', 'monthly': 'rpt-p-monthly' };
     Object.entries(map).forEach(([m, id]) => {
       const btn = document.getElementById(id);
       if (!btn) return;
-      const active = m === mode;
-      btn.className = `py-1.5 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-600 border-gray-300'}`;
+      const active = m === _repeatModeTemp;
+      btn.className = `py-2.5 rounded-xl text-sm font-bold border transition-colors ${active ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-600 border-gray-300'}`;
     });
-    const countRow = document.getElementById('rpt-count-row');
-    if (countRow) countRow.classList.toggle('hidden', mode === '');
     const countEl = document.getElementById('ev-repeat-count');
-    if (countEl) countEl.max = mode === 'monthly' ? '12' : mode === 'biweek' ? '26' : '52';
+    if (countEl) countEl.max = _repeatModeTemp === 'monthly' ? '12' : '52';
+    document.getElementById('rpt-count-section')?.classList.toggle('hidden', _repeatModeTemp === '');
+  }
+
+  function confirmRepeat() {
+    _repeatMode = _repeatModeTemp;
+    _repeatCount = Math.max(2, Math.min(52, parseInt(document.getElementById('ev-repeat-count')?.value) || 4));
+    updateRepeatBtn();
     updateSaveBtnText();
+    closeRepeatModal();
+  }
+
+  function updateRepeatBtn() {
+    const label = document.getElementById('ev-repeat-label');
+    const btn   = document.getElementById('ev-repeat-btn');
+    if (!label || !btn) return;
+    if (_repeatMode === '') {
+      label.textContent = 'なし';
+      label.className   = 'text-xs font-bold text-gray-500';
+      btn.className     = 'shrink-0 bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-100 transition-colors flex items-center gap-1.5';
+    } else {
+      const mLabel = _repeatMode === 'weekly' ? '毎週' : '毎月';
+      label.textContent = `${mLabel} ${_repeatCount}回`;
+      label.className   = 'text-xs font-bold text-red-600';
+      btn.className     = 'shrink-0 bg-red-50 border border-red-300 rounded-lg px-3 py-2 hover:bg-red-100 transition-colors flex items-center gap-1.5';
+    }
   }
 
   function updateSaveBtnText() {
     const txt = document.getElementById('event-save-text');
     if (!txt) return;
     if (_repeatMode) {
-      const n = parseInt(document.getElementById('ev-repeat-count')?.value) || 4;
-      const label = _repeatMode === 'weekly' ? '毎週' : _repeatMode === 'biweek' ? '隔週' : '毎月';
-      txt.textContent = `${label} ${n}回分保存する`;
+      const mLabel = _repeatMode === 'weekly' ? '毎週' : '毎月';
+      txt.textContent = `${mLabel} ${_repeatCount}回分保存する`;
     } else {
       txt.textContent = '保存する';
     }
   }
 
+  function setRepeat(mode) { /* 旧互換 */ }
+
   // ─── イベント作成／編集 ──────────────────────────────────────────────
   function openEventModal(id = null) {
     document.getElementById('event-modal-title').textContent = id ? '📅 イベントを編集' : '📅 イベント作成';
     document.getElementById('edit-event-id').value = id || '';
-    // 繰り返しセクションは新規作成のみ表示
+    // 繰り返しボタンは新規作成のみ表示
     document.getElementById('ev-repeat-section')?.classList.toggle('hidden', !!id);
-    setRepeat('');
+    _repeatMode = ''; _repeatCount = 4; _repeatModeTemp = '';
+    updateRepeatBtn(); updateSaveBtnText();
     if (id) {
       const ev = events.find(e => e.id === id);
       if (ev) {
@@ -3056,12 +3121,11 @@ window.addEventListener('message',function(e){
       };
       // 繰り返し保存（新規のみ）
       if (!editId && _repeatMode) {
-        const count = Math.min(52, Math.max(2, parseInt(document.getElementById('ev-repeat-count').value) || 4));
+        const count = _repeatCount;
         const payloads = [];
         for (let i = 0; i < count; i++) {
           const d = new Date(date + 'T00:00:00');
           if      (_repeatMode === 'weekly')  d.setDate(d.getDate() + i * 7);
-          else if (_repeatMode === 'biweek')  d.setDate(d.getDate() + i * 14);
           else if (_repeatMode === 'monthly') d.setMonth(d.getMonth() + i);
           payloads.push({ ...payload, event_date: d.toISOString().slice(0, 10) });
         }
