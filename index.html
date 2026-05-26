@@ -2702,7 +2702,7 @@ window.addEventListener('message',function(e){
 
   function closeTimePicker() {
     document.getElementById('time-picker-modal').classList.add('hidden');
-    _notifyClose('time-picker-modal');
+    _removeFromStack('time-picker-modal');
   }
 
   function tpMoveCursor(row, pos) {
@@ -2869,7 +2869,7 @@ window.addEventListener('message',function(e){
 
   function closeMeetupTimePicker() {
     document.getElementById('meetup-picker-modal').classList.add('hidden');
-    _notifyClose('meetup-picker-modal');
+    _removeFromStack('meetup-picker-modal');
   }
 
   function mtpInput(digit) {
