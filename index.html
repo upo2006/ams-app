@@ -3251,6 +3251,10 @@ window.addEventListener('message',function(e){
     updateRepeatSummary();
   }
 
+  function _localDateStr(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
   function toggleWeekday(wd) {
     const isAdding = !_repeatWeekdaysTemp.includes(wd);
     const idx = _repeatWeekdaysTemp.indexOf(wd);
@@ -3259,31 +3263,33 @@ window.addEventListener('message',function(e){
     } else {
       _repeatWeekdaysTemp.push(wd);
     }
-    renderRepeatPopup();
+    // 先に開始日を計算してから renderRepeatPopup（サマリーに最新日が反映される）
     const evStr = document.getElementById('ev-date')?.value;
-    if (!evStr || _repeatWeekdaysTemp.length === 0) return;
-    const base = new Date(evStr + 'T00:00:00');
-    let v;
-    if (isAdding) {
-      // 追加した曜日だけで計算
-      const diff = (wd - base.getDay() + 7) % 7;
-      const d = new Date(base.getTime()); d.setDate(d.getDate() + diff);
-      v = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-    } else {
-      // 残りの曜日の中で最も早い日を計算
-      let earliest = null;
-      for (const w of _repeatWeekdaysTemp) {
-        const diff = (w - base.getDay() + 7) % 7;
+    if (evStr && _repeatWeekdaysTemp.length > 0) {
+      const base = new Date(evStr + 'T00:00:00');
+      let v;
+      if (isAdding) {
+        // 追加した曜日だけで計算
+        const diff = (wd - base.getDay() + 7) % 7;
         const d = new Date(base.getTime()); d.setDate(d.getDate() + diff);
-        if (!earliest || d < earliest) earliest = d;
+        v = _localDateStr(d);
+      } else {
+        // 残りの曜日の中で最も早い日を計算
+        let earliest = null;
+        for (const w of _repeatWeekdaysTemp) {
+          const diff = (w - base.getDay() + 7) % 7;
+          const d = new Date(base.getTime()); d.setDate(d.getDate() + diff);
+          if (!earliest || d < earliest) earliest = d;
+        }
+        if (earliest) v = _localDateStr(earliest);
       }
-      if (earliest) v = earliest.getFullYear() + '-' + String(earliest.getMonth()+1).padStart(2,'0') + '-' + String(earliest.getDate()).padStart(2,'0');
+      if (v) {
+        _repeatStartDateTemp = v;
+        const el = document.getElementById('rpt-start-date-input');
+        if (el) el.value = v;
+      }
     }
-    if (v) {
-      _repeatStartDateTemp = v;
-      const el = document.getElementById('rpt-start-date-input');
-      if (el) el.value = v;
-    }
+    renderRepeatPopup();
   }
 
   function onRepeatStartDateChange() {
@@ -3428,7 +3434,7 @@ window.addEventListener('message',function(e){
           d.setDate(d.getDate() + w * 7 + wd);
           if (d < start) continue;
           if (end && d > end) return dates;
-          dates.push(d.toISOString().slice(0, 10));
+          dates.push(_localDateStr(d));
         }
       }
     }
@@ -3458,7 +3464,7 @@ window.addEventListener('message',function(e){
 
         if (d < start) continue;
         if (end && d > end) break;
-        dates.push(d.toISOString().slice(0, 10));
+        dates.push(_localDateStr(d));
       }
     }
 
