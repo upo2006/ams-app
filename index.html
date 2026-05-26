@@ -3332,6 +3332,15 @@ window.addEventListener('message',function(e){
   }
 
   function clearRepeat() {
+    // 確定値もリセット
+    _repeatMode       = '';
+    _repeatInterval   = 1;
+    _repeatWeekdays   = [];
+    _repeatMonthBasis = 'date';
+    _repeatEndType    = 'none';
+    _repeatEndDate    = '';
+    _repeatStartDate  = '';
+    // temp値もリセット
     _repeatModeTemp      = '';
     _repeatIntervalTemp  = 1;
     _repeatWeekdaysTemp  = [];
@@ -3339,6 +3348,7 @@ window.addEventListener('message',function(e){
     _repeatEndTypeTemp   = 'none';
     _repeatEndDateTemp   = '';
     _repeatStartDateTemp = '';
+    // DOM リセット
     const intvEl = document.getElementById('rpt-interval-input');
     if (intvEl) intvEl.value = 1;
     const endDateEl = document.getElementById('rpt-end-date-input');
@@ -3349,7 +3359,10 @@ window.addEventListener('message',function(e){
     if (endRadio) endRadio.checked = true;
     const basisRadio = document.querySelector('input[name="rpt-basis"][value="date"]');
     if (basisRadio) basisRadio.checked = true;
-    renderRepeatPopup();
+    // 🔁ボタン表示を更新してモーダルを閉じる
+    updateRepeatBtn();
+    updateSaveBtnText();
+    closeRepeatModal();
   }
 
   function confirmRepeat() {
