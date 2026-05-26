@@ -3182,12 +3182,33 @@ window.addEventListener('message',function(e){
     _removeFromStack('repeat-modal');
   }
 
+  // 毎週：ev-date以降で最も早い選択曜日の日付を開始日に自動設定
+  function _autoFillWeeklyStartDate() {
+    if (_repeatModeTemp !== 'weekly' || _repeatWeekdaysTemp.length === 0) return;
+    const evDateStr = document.getElementById('ev-date')?.value;
+    if (!evDateStr) return;
+    const base = new Date(evDateStr + 'T00:00:00');
+    let earliest = null;
+    for (const w of _repeatWeekdaysTemp) {
+      const diff = (w - base.getDay() + 7) % 7;
+      const d = new Date(base);
+      d.setDate(d.getDate() + diff);
+      if (!earliest || d < earliest) earliest = d;
+    }
+    if (!earliest) return;
+    const val = `${earliest.getFullYear()}-${String(earliest.getMonth()+1).padStart(2,'0')}-${String(earliest.getDate()).padStart(2,'0')}`;
+    _repeatStartDateTemp = val;
+    const el = document.getElementById('rpt-start-date-input');
+    if (el) el.value = val;
+  }
+
   function setRepeatMode(mode) {
     _repeatModeTemp = mode;
     if (mode === 'weekly' && _repeatWeekdaysTemp.length === 0) {
       const startDate = document.getElementById('ev-date').value;
       if (startDate) _repeatWeekdaysTemp = [new Date(startDate + 'T00:00:00').getDay()];
     }
+    if (mode === 'weekly') _autoFillWeeklyStartDate();
     renderRepeatPopup();
   }
 
@@ -3230,27 +3251,7 @@ window.addEventListener('message',function(e){
     } else {
       _repeatWeekdaysTemp.push(wd);
     }
-    // 曜日選択時：ev-date以降で最も早い該当日を開始日に自動設定
-    if (_repeatModeTemp === 'weekly' && _repeatWeekdaysTemp.length > 0) {
-      const evDateStr = document.getElementById('ev-date')?.value;
-      if (evDateStr) {
-        const base = new Date(evDateStr + 'T00:00:00');
-        let earliest = null;
-        for (const w of _repeatWeekdaysTemp) {
-          const diff = (w - base.getDay() + 7) % 7;
-          const d = new Date(base);
-          d.setDate(d.getDate() + diff);
-          if (!earliest || d < earliest) earliest = d;
-        }
-        if (earliest) {
-          const yyyy = earliest.getFullYear();
-          const mm   = String(earliest.getMonth() + 1).padStart(2, '0');
-          const dd   = String(earliest.getDate()).padStart(2, '0');
-          const startDateEl = document.getElementById('rpt-start-date-input');
-          if (startDateEl) startDateEl.value = `${yyyy}-${mm}-${dd}`;
-        }
-      }
-    }
+    _autoFillWeeklyStartDate();
     renderRepeatPopup();
   }
 
