@@ -3143,9 +3143,13 @@ window.addEventListener('message',function(e){
         document.body.style.padding = '0';
         const appEl = document.getElementById('app');
         if (appEl) appEl.style.minHeight = 'unset';
-        // 上下余白を 8px に設定
+        // 上下余白を 8px に設定（pb-4 クラスを除去してから上書き）
         const mainEl = document.querySelector('main');
-        if (mainEl) { mainEl.style.paddingTop = '8px'; mainEl.style.paddingBottom = '8px'; }
+        if (mainEl) {
+          mainEl.classList.remove('pb-4');
+          mainEl.style.setProperty('padding-top',    '8px', 'important');
+          mainEl.style.setProperty('padding-bottom', '8px', 'important');
+        }
         await loadEvents();
         // ResizeObserver で高さ変化を親ページに通知
         const sendHeight = () => {
