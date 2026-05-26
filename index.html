@@ -3136,9 +3136,13 @@ window.addEventListener('message',function(e){
         document.querySelector('footer')?.classList.add('hidden');
         // 保護者ボタン（回答する・結果を見る）を非表示
         document.getElementById('detail-parent-btns')?.classList.add('hidden');
-        // body の余白を除去
+        // body / html / app の高さ固定を解除（コンテンツ高さに追従させる）
+        document.documentElement.style.height = 'auto';
+        document.body.style.height = 'auto';
         document.body.style.margin = '0';
         document.body.style.padding = '0';
+        const appEl = document.getElementById('app');
+        if (appEl) appEl.style.minHeight = 'unset';
         // 上下余白を 8px に設定
         const mainEl = document.querySelector('main');
         if (mainEl) { mainEl.style.paddingTop = '8px'; mainEl.style.paddingBottom = '8px'; }
