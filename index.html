@@ -3159,6 +3159,11 @@ window.addEventListener('message',function(e){
     if (intvEl) intvEl.value = _repeatIntervalTemp;
     const endDateEl = document.getElementById('rpt-end-date-input');
     if (endDateEl) endDateEl.value = _repeatEndDateTemp;
+    // 開始日：未設定なら ev-date を自動セット
+    if (!_repeatStartDateTemp) {
+      const evDateVal = document.getElementById('ev-date')?.value || '';
+      _repeatStartDateTemp = evDateVal;
+    }
     const startDateEl = document.getElementById('rpt-start-date-input');
     if (startDateEl) startDateEl.value = _repeatStartDateTemp;
     const endRadio = document.querySelector(`input[name="rpt-end"][value="${_repeatEndTypeTemp}"]`);
