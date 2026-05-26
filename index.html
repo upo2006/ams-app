@@ -813,9 +813,14 @@
         </div>
       </div>
       <!-- 開始日 -->
-      <div id="rpt-startdate-row" class="hidden flex items-center gap-2">
-        <span class="text-xs font-bold text-red-500 w-16 shrink-0">開始日</span>
-        <span id="rpt-startdate-text" class="text-sm text-gray-800 font-bold"></span>
+      <div id="rpt-startdate-row" class="hidden space-y-1">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-red-500 w-16 shrink-0">開始日</span>
+          <input type="date" id="rpt-start-date-input"
+            class="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500"
+            onchange="updateRepeatSummary()">
+        </div>
+        <p class="text-xs text-gray-400 pl-[4.5rem]">未設定の場合、最初に条件に合う日から開始</p>
       </div>
       <!-- 終了日 -->
       <div id="rpt-enddate-row" class="hidden space-y-2">
@@ -3129,6 +3134,7 @@ window.addEventListener('message',function(e){
   let _repeatMonthBasis = 'date'; // 'date' | 'weekday'
   let _repeatEndType   = 'none';  // 'none' | 'date'
   let _repeatEndDate   = '';
+  let _repeatStartDate = '';      // 開始日（任意）
 
   let _repeatModeTemp      = '';
   let _repeatIntervalTemp  = 1;
@@ -3136,6 +3142,7 @@ window.addEventListener('message',function(e){
   let _repeatMonthBasisTemp = 'date';
   let _repeatEndTypeTemp   = 'none';
   let _repeatEndDateTemp   = '';
+  let _repeatStartDateTemp = '';
 
   function openRepeatModal() {
     // temp に確定値をコピー
@@ -3145,25 +3152,24 @@ window.addEventListener('message',function(e){
     _repeatMonthBasisTemp = _repeatMonthBasis;
     _repeatEndTypeTemp   = _repeatEndType;
     _repeatEndDateTemp   = _repeatEndDate;
+    _repeatStartDateTemp = _repeatStartDate;
 
     // UI に反映
     const intvEl = document.getElementById('rpt-interval-input');
     if (intvEl) intvEl.value = _repeatIntervalTemp;
     const endDateEl = document.getElementById('rpt-end-date-input');
     if (endDateEl) endDateEl.value = _repeatEndDateTemp;
+    const startDateEl = document.getElementById('rpt-start-date-input');
+    if (startDateEl) startDateEl.value = _repeatStartDateTemp;
     const endRadio = document.querySelector(`input[name="rpt-end"][value="${_repeatEndTypeTemp}"]`);
     if (endRadio) endRadio.checked = true;
     const basisRadio = document.querySelector(`input[name="rpt-basis"][value="${_repeatMonthBasisTemp}"]`);
     if (basisRadio) basisRadio.checked = true;
 
-    // 開始日表示
-    const startDate = document.getElementById('ev-date').value;
-    const startEl = document.getElementById('rpt-startdate-text');
-    if (startDate && startEl) {
-      const d = new Date(startDate + 'T00:00:00');
-      startEl.textContent = d.toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
-      // 曜日未設定なら開始日の曜日を自動チェック
-      if (_repeatWeekdaysTemp.length === 0) _repeatWeekdaysTemp = [d.getDay()];
+    // 曜日未設定なら ev-date の曜日を自動チェック
+    const evDate = document.getElementById('ev-date').value;
+    if (evDate && _repeatWeekdaysTemp.length === 0) {
+      _repeatWeekdaysTemp = [new Date(evDate + 'T00:00:00').getDay()];
     }
 
     renderRepeatPopup();
@@ -3274,10 +3280,13 @@ window.addEventListener('message',function(e){
     _repeatMonthBasisTemp = 'date';
     _repeatEndTypeTemp   = 'none';
     _repeatEndDateTemp   = '';
+    _repeatStartDateTemp = '';
     const intvEl = document.getElementById('rpt-interval-input');
     if (intvEl) intvEl.value = 1;
     const endDateEl = document.getElementById('rpt-end-date-input');
     if (endDateEl) endDateEl.value = '';
+    const startDateEl = document.getElementById('rpt-start-date-input');
+    if (startDateEl) startDateEl.value = '';
     const endRadio = document.querySelector('input[name="rpt-end"][value="none"]');
     if (endRadio) endRadio.checked = true;
     const basisRadio = document.querySelector('input[name="rpt-basis"][value="date"]');
@@ -3292,6 +3301,7 @@ window.addEventListener('message',function(e){
     _repeatMonthBasis = _repeatMonthBasisTemp;
     _repeatEndType    = _repeatEndTypeTemp;
     _repeatEndDate    = _repeatEndDateTemp;
+    _repeatStartDate  = document.getElementById('rpt-start-date-input')?.value || '';
     updateRepeatBtn();
     updateSaveBtnText();
     closeRepeatModal();
@@ -3330,7 +3340,9 @@ window.addEventListener('message',function(e){
 
   function generateRepeatDates(startDateStr) {
     const dates  = [];
-    const start  = new Date(startDateStr + 'T00:00:00');
+    // 開始日が指定されていればそちらを優先、なければ ev-date を使用
+    const effectiveStart = _repeatStartDate || startDateStr;
+    const start  = new Date(effectiveStart + 'T00:00:00');
     const end    = (_repeatEndType === 'date' && _repeatEndDate) ? new Date(_repeatEndDate + 'T00:00:00') : null;
     const DAY_ORDER = [1,2,3,4,5,6,0]; // 月〜日の順
 
@@ -3393,7 +3405,7 @@ window.addEventListener('message',function(e){
     // 繰り返しボタンは新規作成のみ表示
     document.getElementById('ev-repeat-section')?.classList.toggle('hidden', !!id);
     _repeatMode = ''; _repeatInterval = 1; _repeatWeekdays = [];
-    _repeatMonthBasis = 'date'; _repeatEndType = 'none'; _repeatEndDate = '';
+    _repeatMonthBasis = 'date'; _repeatEndType = 'none'; _repeatEndDate = ''; _repeatStartDate = '';
     if (!id) _editSeriesScope = ''; // 新規作成時のみリセット（編集時は保持）
     updateRepeatBtn(); updateSaveBtnText();
     if (id) {
