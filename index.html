@@ -478,6 +478,23 @@
         <input type="date" id="ev-date"
           class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500">
       </div>
+      <!-- 繰り返し -->
+      <div id="ev-repeat-section">
+        <label class="block text-gray-700 text-xs font-bold mb-1">繰り返し</label>
+        <div class="grid grid-cols-4 gap-1.5">
+          <button type="button" id="rpt-none"    onclick="setRepeat('')"        class="py-1.5 rounded-lg text-xs font-bold border transition-colors bg-red-500 text-white border-red-500">なし</button>
+          <button type="button" id="rpt-weekly"  onclick="setRepeat('weekly')"  class="py-1.5 rounded-lg text-xs font-bold border transition-colors bg-white text-gray-600 border-gray-300">毎週</button>
+          <button type="button" id="rpt-biweek"  onclick="setRepeat('biweek')"  class="py-1.5 rounded-lg text-xs font-bold border transition-colors bg-white text-gray-600 border-gray-300">隔週</button>
+          <button type="button" id="rpt-monthly" onclick="setRepeat('monthly')" class="py-1.5 rounded-lg text-xs font-bold border transition-colors bg-white text-gray-600 border-gray-300">毎月</button>
+        </div>
+        <div id="rpt-count-row" class="hidden mt-2 flex items-center gap-2">
+          <span class="text-xs text-gray-500">この日を含め</span>
+          <input type="number" id="ev-repeat-count" min="2" max="52" value="4"
+            class="w-14 bg-gray-50 border border-gray-300 rounded-lg px-2 py-1 text-sm text-center font-bold focus:outline-none focus:ring-2 focus:ring-red-500"
+            oninput="updateSaveBtnText()">
+          <span class="text-xs text-gray-500">回作成</span>
+        </div>
+      </div>
       <div>
         <label class="block text-gray-700 text-xs font-bold mb-1">時間</label>
         <input type="hidden" id="ev-time">
@@ -2944,10 +2961,44 @@ window.addEventListener('message',function(e){
     URL.revokeObjectURL(url);
   }
 
+  // ─── 繰り返し設定 ────────────────────────────────────────────────────
+  let _repeatMode = '';
+
+  function setRepeat(mode) {
+    _repeatMode = mode;
+    const map = { '': 'rpt-none', 'weekly': 'rpt-weekly', 'biweek': 'rpt-biweek', 'monthly': 'rpt-monthly' };
+    Object.entries(map).forEach(([m, id]) => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      const active = m === mode;
+      btn.className = `py-1.5 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-600 border-gray-300'}`;
+    });
+    const countRow = document.getElementById('rpt-count-row');
+    if (countRow) countRow.classList.toggle('hidden', mode === '');
+    const countEl = document.getElementById('ev-repeat-count');
+    if (countEl) countEl.max = mode === 'monthly' ? '12' : mode === 'biweek' ? '26' : '52';
+    updateSaveBtnText();
+  }
+
+  function updateSaveBtnText() {
+    const txt = document.getElementById('event-save-text');
+    if (!txt) return;
+    if (_repeatMode) {
+      const n = parseInt(document.getElementById('ev-repeat-count')?.value) || 4;
+      const label = _repeatMode === 'weekly' ? '毎週' : _repeatMode === 'biweek' ? '隔週' : '毎月';
+      txt.textContent = `${label} ${n}回分保存する`;
+    } else {
+      txt.textContent = '保存する';
+    }
+  }
+
   // ─── イベント作成／編集 ──────────────────────────────────────────────
   function openEventModal(id = null) {
     document.getElementById('event-modal-title').textContent = id ? '📅 イベントを編集' : '📅 イベント作成';
     document.getElementById('edit-event-id').value = id || '';
+    // 繰り返しセクションは新規作成のみ表示
+    document.getElementById('ev-repeat-section')?.classList.toggle('hidden', !!id);
+    setRepeat('');
     if (id) {
       const ev = events.find(e => e.id === id);
       if (ev) {
@@ -3003,6 +3054,24 @@ window.addEventListener('message',function(e){
         detail:     document.getElementById('ev-detail').value.trim()     || null,
         memo:       document.getElementById('ev-memo').value.trim()       || null,
       };
+      // 繰り返し保存（新規のみ）
+      if (!editId && _repeatMode) {
+        const count = Math.min(52, Math.max(2, parseInt(document.getElementById('ev-repeat-count').value) || 4));
+        const payloads = [];
+        for (let i = 0; i < count; i++) {
+          const d = new Date(date + 'T00:00:00');
+          if      (_repeatMode === 'weekly')  d.setDate(d.getDate() + i * 7);
+          else if (_repeatMode === 'biweek')  d.setDate(d.getDate() + i * 14);
+          else if (_repeatMode === 'monthly') d.setMonth(d.getMonth() + i);
+          payloads.push({ ...payload, event_date: d.toISOString().slice(0, 10) });
+        }
+        const { error } = await supabaseClient.from(TABLE_EVENTS).insert(payloads);
+        if (error) { setStatus(status, '保存に失敗しました: ' + error.message, 'error'); return; }
+        closeEventModal();
+        loadEvents();
+        return;
+      }
+      // 通常保存（1件）
       const { error } = editId
         ? await supabaseClient.from(TABLE_EVENTS).update(payload).eq('id', editId)
         : await supabaseClient.from(TABLE_EVENTS).insert(payload);
