@@ -3174,7 +3174,9 @@ window.addEventListener('message',function(e){
 
     renderRepeatPopup();
     _pushM('repeat-modal');
-    document.getElementById('repeat-modal').classList.remove('hidden');
+    const rm = document.getElementById('repeat-modal');
+    rm.style.display = '';
+    rm.classList.remove('hidden');
   }
 
   function closeRepeatModal() {
@@ -3332,6 +3334,12 @@ window.addEventListener('message',function(e){
   }
 
   function clearRepeat() {
+    // まずモーダルを確実に閉じる
+    const rModal = document.getElementById('repeat-modal');
+    if (rModal) { rModal.style.display = 'none'; rModal.classList.add('hidden'); }
+    const si = _mStack.lastIndexOf('repeat-modal');
+    if (si >= 0) _mStack.splice(si, 1);
+    if (history.state?._mid === 'repeat-modal') history.replaceState(null, '');
     // 確定値もリセット
     _repeatMode       = '';
     _repeatInterval   = 1;
@@ -3359,10 +3367,9 @@ window.addEventListener('message',function(e){
     if (endRadio) endRadio.checked = true;
     const basisRadio = document.querySelector('input[name="rpt-basis"][value="date"]');
     if (basisRadio) basisRadio.checked = true;
-    // 🔁ボタン表示を更新してモーダルを閉じる
+    // 🔁ボタン表示を更新
     updateRepeatBtn();
     updateSaveBtnText();
-    closeRepeatModal();
   }
 
   function confirmRepeat() {
