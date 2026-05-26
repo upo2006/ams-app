@@ -738,30 +738,92 @@
 
 
 <!-- ══ 繰り返し設定ポップアップ ══════════════════════════════════════ -->
-<div id="repeat-modal" class="hidden fixed inset-0 z-[220] flex items-end justify-center">
-  <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeRepeatModal()"></div>
-  <div class="relative w-full max-w-sm bg-white rounded-t-2xl shadow-2xl px-5 pt-5 pb-8">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-base font-black text-gray-800">🔁 繰り返し設定</h3>
-      <button onclick="closeRepeatModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+<div id="repeat-modal" class="hidden fixed inset-0 z-[220] flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeRepeatModal()"></div>
+  <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+    <!-- ヘッダー -->
+    <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-5 py-4 flex items-center gap-3">
+      <span class="text-xl">🔁</span>
+      <h3 class="text-lg font-black">繰り返し設定</h3>
     </div>
     <!-- パターン選択 -->
-    <div class="grid grid-cols-3 gap-2 mb-4">
-      <button type="button" id="rpt-p-none"    onclick="setRepeatMode('')"        class="py-2.5 rounded-xl text-sm font-bold border transition-colors">なし</button>
-      <button type="button" id="rpt-p-weekly"  onclick="setRepeatMode('weekly')"  class="py-2.5 rounded-xl text-sm font-bold border transition-colors">毎週</button>
-      <button type="button" id="rpt-p-monthly" onclick="setRepeatMode('monthly')" class="py-2.5 rounded-xl text-sm font-bold border transition-colors">毎月</button>
+    <div class="px-5 pt-4 pb-3 bg-gray-50 border-b border-gray-200">
+      <div class="grid grid-cols-3 gap-2">
+        <button type="button" id="rpt-p-none"    onclick="setRepeatMode('')"        class="py-2 rounded-xl text-sm font-bold border transition-colors">なし</button>
+        <button type="button" id="rpt-p-weekly"  onclick="setRepeatMode('weekly')"  class="py-2 rounded-xl text-sm font-bold border transition-colors">毎週</button>
+        <button type="button" id="rpt-p-monthly" onclick="setRepeatMode('monthly')" class="py-2 rounded-xl text-sm font-bold border transition-colors">毎月</button>
+      </div>
     </div>
-    <!-- 回数入力（なし以外） -->
-    <div id="rpt-count-section" class="hidden mb-5 flex items-center gap-2">
-      <span class="text-sm text-gray-500">この日を含め</span>
-      <input type="number" id="ev-repeat-count" min="2" max="52" value="4"
-        class="w-16 bg-gray-50 border border-gray-300 rounded-lg px-2 py-2 text-sm text-center font-bold focus:outline-none focus:ring-2 focus:ring-red-500">
-      <span class="text-sm text-gray-500">回作成</span>
+    <!-- 詳細設定エリア -->
+    <div class="px-5 py-4 space-y-3">
+      <!-- 間隔（週/月共通） -->
+      <div id="rpt-interval-row" class="hidden flex items-center gap-2">
+        <span class="text-xs font-bold text-red-500 w-16 shrink-0">間隔</span>
+        <input type="number" id="rpt-interval-input" min="1" max="12" value="1"
+          class="w-14 bg-gray-50 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-center font-bold focus:outline-none focus:ring-2 focus:ring-red-500"
+          oninput="updateRepeatSummary()">
+        <span id="rpt-interval-unit" class="text-sm text-gray-600">週間</span>
+      </div>
+      <!-- 曜日（毎週のみ） -->
+      <div id="rpt-weekday-row" class="hidden flex items-start gap-2">
+        <span class="text-xs font-bold text-red-500 w-16 shrink-0 pt-1.5">曜日</span>
+        <div class="flex gap-1.5 flex-wrap">
+          <button type="button" data-wd="1" onclick="toggleWeekday(1)" class="rpt-wd-btn w-8 h-8 rounded-full text-xs font-bold border transition-colors">月</button>
+          <button type="button" data-wd="2" onclick="toggleWeekday(2)" class="rpt-wd-btn w-8 h-8 rounded-full text-xs font-bold border transition-colors">火</button>
+          <button type="button" data-wd="3" onclick="toggleWeekday(3)" class="rpt-wd-btn w-8 h-8 rounded-full text-xs font-bold border transition-colors">水</button>
+          <button type="button" data-wd="4" onclick="toggleWeekday(4)" class="rpt-wd-btn w-8 h-8 rounded-full text-xs font-bold border transition-colors">木</button>
+          <button type="button" data-wd="5" onclick="toggleWeekday(5)" class="rpt-wd-btn w-8 h-8 rounded-full text-xs font-bold border transition-colors">金</button>
+          <button type="button" data-wd="6" onclick="toggleWeekday(6)" class="rpt-wd-btn w-8 h-8 rounded-full text-xs font-bold border transition-colors">土</button>
+          <button type="button" data-wd="0" onclick="toggleWeekday(0)" class="rpt-wd-btn w-8 h-8 rounded-full text-xs font-bold border transition-colors">日</button>
+        </div>
+      </div>
+      <!-- 基準（毎月のみ） -->
+      <div id="rpt-basis-row" class="hidden flex items-center gap-2">
+        <span class="text-xs font-bold text-red-500 w-16 shrink-0">基準</span>
+        <div class="flex gap-5">
+          <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+            <input type="radio" name="rpt-basis" value="date" checked onchange="rptBasisChange(this)"> 日付
+          </label>
+          <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+            <input type="radio" name="rpt-basis" value="weekday" onchange="rptBasisChange(this)"> 曜日
+          </label>
+        </div>
+      </div>
+      <!-- 開始日 -->
+      <div id="rpt-startdate-row" class="hidden flex items-center gap-2">
+        <span class="text-xs font-bold text-red-500 w-16 shrink-0">開始日</span>
+        <span id="rpt-startdate-text" class="text-sm text-gray-800 font-bold"></span>
+      </div>
+      <!-- 終了日 -->
+      <div id="rpt-enddate-row" class="hidden space-y-2">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-red-500 w-16 shrink-0">終了日</span>
+          <div class="flex gap-5">
+            <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input type="radio" name="rpt-end" value="none" checked onchange="rptEndChange(this)"> なし
+            </label>
+            <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input type="radio" name="rpt-end" value="date" onchange="rptEndChange(this)"> 指定する
+            </label>
+          </div>
+        </div>
+        <div id="rpt-enddate-input-row" class="hidden pl-[4.5rem]">
+          <input type="date" id="rpt-end-date-input"
+            class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500"
+            onchange="updateRepeatSummary()">
+        </div>
+      </div>
+      <!-- 概要 -->
+      <div id="rpt-summary-row" class="hidden bg-gray-50 rounded-xl px-3 py-2.5 border border-gray-200">
+        <span class="text-xs text-gray-400 block mb-0.5">概要</span>
+        <span id="rpt-summary-text" class="text-sm font-bold text-gray-800"></span>
+      </div>
     </div>
     <!-- ボタン -->
-    <div class="grid grid-cols-2 gap-3">
-      <button onclick="closeRepeatModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-colors text-sm">キャンセル</button>
-      <button onclick="confirmRepeat()"    class="bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-xl transition-colors text-sm">設定</button>
+    <div class="px-5 pb-5 grid grid-cols-3 gap-2">
+      <button onclick="confirmRepeat()"      class="bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-xl transition-colors text-sm">設定</button>
+      <button onclick="clearRepeat()"        class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-colors text-sm">クリア</button>
+      <button onclick="closeRepeatModal()"   class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-colors text-sm">戻る</button>
     </div>
   </div>
 </div>
@@ -2983,14 +3045,49 @@ window.addEventListener('message',function(e){
   }
 
   // ─── 繰り返し設定 ────────────────────────────────────────────────────
-  let _repeatMode = '';
-  let _repeatCount = 4;
-  let _repeatModeTemp = '';
+  let _repeatMode      = '';      // 確定値
+  let _repeatInterval  = 1;
+  let _repeatWeekdays  = [];      // [0-6] 0=日
+  let _repeatMonthBasis = 'date'; // 'date' | 'weekday'
+  let _repeatEndType   = 'none';  // 'none' | 'date'
+  let _repeatEndDate   = '';
+
+  let _repeatModeTemp      = '';
+  let _repeatIntervalTemp  = 1;
+  let _repeatWeekdaysTemp  = [];
+  let _repeatMonthBasisTemp = 'date';
+  let _repeatEndTypeTemp   = 'none';
+  let _repeatEndDateTemp   = '';
 
   function openRepeatModal() {
-    _repeatModeTemp = _repeatMode;
-    const countEl = document.getElementById('ev-repeat-count');
-    if (countEl) countEl.value = _repeatCount;
+    // temp に確定値をコピー
+    _repeatModeTemp      = _repeatMode;
+    _repeatIntervalTemp  = _repeatInterval;
+    _repeatWeekdaysTemp  = [..._repeatWeekdays];
+    _repeatMonthBasisTemp = _repeatMonthBasis;
+    _repeatEndTypeTemp   = _repeatEndType;
+    _repeatEndDateTemp   = _repeatEndDate;
+
+    // UI に反映
+    const intvEl = document.getElementById('rpt-interval-input');
+    if (intvEl) intvEl.value = _repeatIntervalTemp;
+    const endDateEl = document.getElementById('rpt-end-date-input');
+    if (endDateEl) endDateEl.value = _repeatEndDateTemp;
+    const endRadio = document.querySelector(`input[name="rpt-end"][value="${_repeatEndTypeTemp}"]`);
+    if (endRadio) endRadio.checked = true;
+    const basisRadio = document.querySelector(`input[name="rpt-basis"][value="${_repeatMonthBasisTemp}"]`);
+    if (basisRadio) basisRadio.checked = true;
+
+    // 開始日表示
+    const startDate = document.getElementById('ev-date').value;
+    const startEl = document.getElementById('rpt-startdate-text');
+    if (startDate && startEl) {
+      const d = new Date(startDate + 'T00:00:00');
+      startEl.textContent = d.toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
+      // 曜日未設定なら開始日の曜日を自動チェック
+      if (_repeatWeekdaysTemp.length === 0) _repeatWeekdaysTemp = [d.getDay()];
+    }
+
     renderRepeatPopup();
     _pushM('repeat-modal');
     document.getElementById('repeat-modal').classList.remove('hidden');
@@ -3003,25 +3100,120 @@ window.addEventListener('message',function(e){
 
   function setRepeatMode(mode) {
     _repeatModeTemp = mode;
+    if (mode === 'weekly' && _repeatWeekdaysTemp.length === 0) {
+      const startDate = document.getElementById('ev-date').value;
+      if (startDate) _repeatWeekdaysTemp = [new Date(startDate + 'T00:00:00').getDay()];
+    }
     renderRepeatPopup();
   }
 
   function renderRepeatPopup() {
-    const map = { '': 'rpt-p-none', 'weekly': 'rpt-p-weekly', 'monthly': 'rpt-p-monthly' };
-    Object.entries(map).forEach(([m, id]) => {
+    // パターンボタン
+    const pMap = { '': 'rpt-p-none', 'weekly': 'rpt-p-weekly', 'monthly': 'rpt-p-monthly' };
+    Object.entries(pMap).forEach(([m, id]) => {
       const btn = document.getElementById(id);
       if (!btn) return;
-      const active = m === _repeatModeTemp;
-      btn.className = `py-2.5 rounded-xl text-sm font-bold border transition-colors ${active ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-600 border-gray-300'}`;
+      btn.className = `py-2 rounded-xl text-sm font-bold border transition-colors ${m === _repeatModeTemp ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-600 border-gray-300'}`;
     });
-    const countEl = document.getElementById('ev-repeat-count');
-    if (countEl) countEl.max = _repeatModeTemp === 'monthly' ? '12' : '52';
-    document.getElementById('rpt-count-section')?.classList.toggle('hidden', _repeatModeTemp === '');
+
+    const hasMode = _repeatModeTemp !== '';
+    document.getElementById('rpt-interval-row')?.classList.toggle('hidden', !hasMode);
+    document.getElementById('rpt-weekday-row')?.classList.toggle('hidden',  _repeatModeTemp !== 'weekly');
+    document.getElementById('rpt-basis-row')?.classList.toggle('hidden',    _repeatModeTemp !== 'monthly');
+    document.getElementById('rpt-startdate-row')?.classList.toggle('hidden', !hasMode);
+    document.getElementById('rpt-enddate-row')?.classList.toggle('hidden',   !hasMode);
+    document.getElementById('rpt-summary-row')?.classList.toggle('hidden',   !hasMode);
+    document.getElementById('rpt-enddate-input-row')?.classList.toggle('hidden', _repeatEndTypeTemp !== 'date');
+
+    // 単位ラベル
+    const unitEl = document.getElementById('rpt-interval-unit');
+    if (unitEl) unitEl.textContent = _repeatModeTemp === 'monthly' ? 'ヶ月' : '週間';
+
+    // 曜日ボタン
+    document.querySelectorAll('.rpt-wd-btn').forEach(btn => {
+      const wd = parseInt(btn.dataset.wd);
+      const active = _repeatWeekdaysTemp.includes(wd);
+      btn.className = `rpt-wd-btn w-8 h-8 rounded-full text-xs font-bold border transition-colors ${active ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-600 border-gray-300'}`;
+    });
+
+    updateRepeatSummary();
+  }
+
+  function toggleWeekday(wd) {
+    const idx = _repeatWeekdaysTemp.indexOf(wd);
+    if (idx >= 0) {
+      if (_repeatWeekdaysTemp.length > 1) _repeatWeekdaysTemp.splice(idx, 1);
+    } else {
+      _repeatWeekdaysTemp.push(wd);
+    }
+    renderRepeatPopup();
+  }
+
+  function rptBasisChange(radio) {
+    _repeatMonthBasisTemp = radio.value;
+    updateRepeatSummary();
+  }
+
+  function rptEndChange(radio) {
+    _repeatEndTypeTemp = radio.value;
+    document.getElementById('rpt-enddate-input-row')?.classList.toggle('hidden', radio.value !== 'date');
+    updateRepeatSummary();
+  }
+
+  function updateRepeatSummary() {
+    _repeatIntervalTemp = parseInt(document.getElementById('rpt-interval-input')?.value) || 1;
+    _repeatEndDateTemp  = document.getElementById('rpt-end-date-input')?.value || '';
+    const startDate = document.getElementById('ev-date').value;
+    const summaryEl = document.getElementById('rpt-summary-text');
+    if (!summaryEl) return;
+    const DAY = ['日','月','火','水','木','金','土'];
+    let text = '';
+
+    if (_repeatModeTemp === 'weekly') {
+      const prefix = _repeatIntervalTemp === 1 ? '毎週' : `${_repeatIntervalTemp}週ごと`;
+      const days = [..._repeatWeekdaysTemp].sort((a,b)=>(a===0?7:a)-(b===0?7:b)).map(d=>DAY[d]).join('・');
+      const endStr = _repeatEndTypeTemp === 'date' && _repeatEndDateTemp ? ` ～ ${_repeatEndDateTemp}` : '';
+      text = `${prefix} ${days}${endStr}`;
+    } else if (_repeatModeTemp === 'monthly' && startDate) {
+      const prefix = _repeatIntervalTemp === 1 ? '毎月' : `${_repeatIntervalTemp}ヶ月ごと`;
+      const d = new Date(startDate + 'T00:00:00');
+      const endStr = _repeatEndTypeTemp === 'date' && _repeatEndDateTemp ? ` ～ ${_repeatEndDateTemp}` : '';
+      if (_repeatMonthBasisTemp === 'date') {
+        text = `${prefix} ${d.getDate()}日${endStr}`;
+      } else {
+        const nth  = Math.ceil(d.getDate() / 7);
+        const nStr = ['','第1','第2','第3','第4','第5'][nth] || '第4';
+        text = `${prefix} ${nStr}${DAY[d.getDay()]}曜日${endStr}`;
+      }
+    }
+    summaryEl.textContent = text;
+  }
+
+  function clearRepeat() {
+    _repeatModeTemp      = '';
+    _repeatIntervalTemp  = 1;
+    _repeatWeekdaysTemp  = [];
+    _repeatMonthBasisTemp = 'date';
+    _repeatEndTypeTemp   = 'none';
+    _repeatEndDateTemp   = '';
+    const intvEl = document.getElementById('rpt-interval-input');
+    if (intvEl) intvEl.value = 1;
+    const endDateEl = document.getElementById('rpt-end-date-input');
+    if (endDateEl) endDateEl.value = '';
+    const endRadio = document.querySelector('input[name="rpt-end"][value="none"]');
+    if (endRadio) endRadio.checked = true;
+    const basisRadio = document.querySelector('input[name="rpt-basis"][value="date"]');
+    if (basisRadio) basisRadio.checked = true;
+    renderRepeatPopup();
   }
 
   function confirmRepeat() {
-    _repeatMode = _repeatModeTemp;
-    _repeatCount = Math.max(2, Math.min(52, parseInt(document.getElementById('ev-repeat-count')?.value) || 4));
+    _repeatMode       = _repeatModeTemp;
+    _repeatInterval   = _repeatIntervalTemp;
+    _repeatWeekdays   = [..._repeatWeekdaysTemp];
+    _repeatMonthBasis = _repeatMonthBasisTemp;
+    _repeatEndType    = _repeatEndTypeTemp;
+    _repeatEndDate    = _repeatEndDateTemp;
     updateRepeatBtn();
     updateSaveBtnText();
     closeRepeatModal();
@@ -3036,8 +3228,10 @@ window.addEventListener('message',function(e){
       label.className   = 'text-xs font-bold text-gray-500';
       btn.className     = 'shrink-0 bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-100 transition-colors flex items-center gap-1.5';
     } else {
-      const mLabel = _repeatMode === 'weekly' ? '毎週' : '毎月';
-      label.textContent = `${mLabel} ${_repeatCount}回`;
+      const mLabel = _repeatMode === 'weekly'
+        ? (_repeatInterval === 1 ? '毎週' : `${_repeatInterval}週ごと`)
+        : (_repeatInterval === 1 ? '毎月' : `${_repeatInterval}ヶ月ごと`);
+      label.textContent = mLabel;
       label.className   = 'text-xs font-bold text-red-600';
       btn.className     = 'shrink-0 bg-red-50 border border-red-300 rounded-lg px-3 py-2 hover:bg-red-100 transition-colors flex items-center gap-1.5';
     }
@@ -3047,11 +3241,69 @@ window.addEventListener('message',function(e){
     const txt = document.getElementById('event-save-text');
     if (!txt) return;
     if (_repeatMode) {
-      const mLabel = _repeatMode === 'weekly' ? '毎週' : '毎月';
-      txt.textContent = `${mLabel} ${_repeatCount}回分保存する`;
+      const mLabel = _repeatMode === 'weekly'
+        ? (_repeatInterval === 1 ? '毎週' : `${_repeatInterval}週ごと`)
+        : (_repeatInterval === 1 ? '毎月' : `${_repeatInterval}ヶ月ごと`);
+      txt.textContent = `${mLabel}で保存する`;
     } else {
       txt.textContent = '保存する';
     }
+  }
+
+  function generateRepeatDates(startDateStr) {
+    const dates  = [];
+    const start  = new Date(startDateStr + 'T00:00:00');
+    const end    = (_repeatEndType === 'date' && _repeatEndDate) ? new Date(_repeatEndDate + 'T00:00:00') : null;
+    const DAY_ORDER = [1,2,3,4,5,6,0]; // 月〜日の順
+
+    if (_repeatMode === 'weekly') {
+      // start の週の日曜を基点に
+      const base = new Date(start);
+      base.setDate(base.getDate() - base.getDay()); // 日曜に戻す
+      const sortedWds = [..._repeatWeekdays].sort((a,b)=>(a===0?7:a)-(b===0?7:b));
+      const maxWeeks  = end ? Math.ceil((end - start) / (7*86400000)) + _repeatInterval + 1 : 53;
+
+      for (let w = 0; w <= maxWeeks && dates.length < 200; w += _repeatInterval) {
+        for (const wd of sortedWds) {
+          const d = new Date(base);
+          d.setDate(d.getDate() + w * 7 + wd);
+          if (d < start) continue;
+          if (end && d > end) return dates;
+          dates.push(d.toISOString().slice(0, 10));
+        }
+      }
+    }
+
+    if (_repeatMode === 'monthly') {
+      const maxMonths = end
+        ? (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1
+        : 12;
+
+      for (let m = 0; m <= maxMonths && dates.length < 100; m += _repeatInterval) {
+        const totalM = start.getMonth() + m;
+        const yr = start.getFullYear() + Math.floor(totalM / 12);
+        const mo = totalM % 12;
+        let d;
+
+        if (_repeatMonthBasis === 'date') {
+          d = new Date(yr, mo, start.getDate());
+          if (d.getMonth() !== mo) continue; // 存在しない日付（2/30 等）
+        } else {
+          const wd  = start.getDay();
+          const nth = Math.ceil(start.getDate() / 7);
+          const firstWd = new Date(yr, mo, 1).getDay();
+          let diff = wd - firstWd; if (diff < 0) diff += 7;
+          d = new Date(yr, mo, 1 + diff + (nth - 1) * 7);
+          if (d.getMonth() !== mo) continue; // 第5週が存在しない場合スキップ
+        }
+
+        if (d < start) continue;
+        if (end && d > end) break;
+        dates.push(d.toISOString().slice(0, 10));
+      }
+    }
+
+    return dates;
   }
 
   function setRepeat(mode) { /* 旧互換 */ }
@@ -3062,7 +3314,8 @@ window.addEventListener('message',function(e){
     document.getElementById('edit-event-id').value = id || '';
     // 繰り返しボタンは新規作成のみ表示
     document.getElementById('ev-repeat-section')?.classList.toggle('hidden', !!id);
-    _repeatMode = ''; _repeatCount = 4; _repeatModeTemp = '';
+    _repeatMode = ''; _repeatInterval = 1; _repeatWeekdays = [];
+    _repeatMonthBasis = 'date'; _repeatEndType = 'none'; _repeatEndDate = '';
     updateRepeatBtn(); updateSaveBtnText();
     if (id) {
       const ev = events.find(e => e.id === id);
@@ -3121,14 +3374,9 @@ window.addEventListener('message',function(e){
       };
       // 繰り返し保存（新規のみ）
       if (!editId && _repeatMode) {
-        const count = _repeatCount;
-        const payloads = [];
-        for (let i = 0; i < count; i++) {
-          const d = new Date(date + 'T00:00:00');
-          if      (_repeatMode === 'weekly')  d.setDate(d.getDate() + i * 7);
-          else if (_repeatMode === 'monthly') d.setMonth(d.getMonth() + i);
-          payloads.push({ ...payload, event_date: d.toISOString().slice(0, 10) });
-        }
+        const repeatDates = generateRepeatDates(date);
+        if (repeatDates.length === 0) { setStatus(status, '条件に合う日付がありません', 'error'); return; }
+        const payloads = repeatDates.map(d => ({ ...payload, event_date: d }));
         const { error } = await supabaseClient.from(TABLE_EVENTS).insert(payloads);
         if (error) { setStatus(status, '保存に失敗しました: ' + error.message, 'error'); return; }
         closeEventModal();
