@@ -3394,6 +3394,7 @@ window.addEventListener('message',function(e){
     document.getElementById('ev-repeat-section')?.classList.toggle('hidden', !!id);
     _repeatMode = ''; _repeatInterval = 1; _repeatWeekdays = [];
     _repeatMonthBasis = 'date'; _repeatEndType = 'none'; _repeatEndDate = '';
+    if (!id) _editSeriesScope = ''; // 新規作成時のみリセット（編集時は保持）
     updateRepeatBtn(); updateSaveBtnText();
     if (id) {
       const ev = events.find(e => e.id === id);
