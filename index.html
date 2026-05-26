@@ -3334,6 +3334,7 @@ window.addEventListener('message',function(e){
   }
 
   function clearRepeat() {
+    closeRepeatModal(); // 最初に閉じる
     // 全変数リセット（確定値 + temp値）
     _repeatMode = ''; _repeatInterval = 1; _repeatWeekdays = [];
     _repeatMonthBasis = 'date'; _repeatEndType = 'none'; _repeatEndDate = ''; _repeatStartDate = '';
@@ -3341,7 +3342,6 @@ window.addEventListener('message',function(e){
     _repeatMonthBasisTemp = 'date'; _repeatEndTypeTemp = 'none'; _repeatEndDateTemp = ''; _repeatStartDateTemp = '';
     updateRepeatBtn();
     updateSaveBtnText();
-    closeRepeatModal();
   }
 
   function confirmRepeat() {
