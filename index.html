@@ -818,7 +818,7 @@
           <span class="text-xs font-bold text-red-500 w-16 shrink-0">開始日</span>
           <input type="date" id="rpt-start-date-input"
             class="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500"
-            onchange="updateRepeatSummary()">
+            onchange="onRepeatStartDateChange()">
         </div>
         <p class="text-xs text-gray-400 pl-[4.5rem]">未設定の場合、最初に条件に合う日から開始</p>
       </div>
@@ -3230,7 +3230,41 @@ window.addEventListener('message',function(e){
     } else {
       _repeatWeekdaysTemp.push(wd);
     }
+    // 曜日選択時：ev-date以降で最も早い該当日を開始日に自動設定
+    if (_repeatModeTemp === 'weekly' && _repeatWeekdaysTemp.length > 0) {
+      const evDateStr = document.getElementById('ev-date')?.value;
+      if (evDateStr) {
+        const base = new Date(evDateStr + 'T00:00:00');
+        let earliest = null;
+        for (const w of _repeatWeekdaysTemp) {
+          const diff = (w - base.getDay() + 7) % 7;
+          const d = new Date(base);
+          d.setDate(d.getDate() + diff);
+          if (!earliest || d < earliest) earliest = d;
+        }
+        if (earliest) {
+          const yyyy = earliest.getFullYear();
+          const mm   = String(earliest.getMonth() + 1).padStart(2, '0');
+          const dd   = String(earliest.getDate()).padStart(2, '0');
+          const startDateEl = document.getElementById('rpt-start-date-input');
+          if (startDateEl) startDateEl.value = `${yyyy}-${mm}-${dd}`;
+        }
+      }
+    }
     renderRepeatPopup();
+  }
+
+  function onRepeatStartDateChange() {
+    if (_repeatModeTemp === 'weekly') {
+      const dateStr = document.getElementById('rpt-start-date-input')?.value;
+      if (dateStr) {
+        const d = new Date(dateStr + 'T00:00:00');
+        _repeatWeekdaysTemp = [d.getDay()]; // その日の曜日に上書き
+        renderRepeatPopup(); // updateRepeatSummaryも内部で呼ばれる
+        return;
+      }
+    }
+    updateRepeatSummary();
   }
 
   function rptBasisChange(radio) {
@@ -3247,7 +3281,10 @@ window.addEventListener('message',function(e){
   function updateRepeatSummary() {
     _repeatIntervalTemp = parseInt(document.getElementById('rpt-interval-input')?.value) || 1;
     _repeatEndDateTemp  = document.getElementById('rpt-end-date-input')?.value || '';
-    const startDate = document.getElementById('ev-date').value;
+    // 開始日入力値を優先、未入力時はev-dateにフォールバック
+    const startDateInput = document.getElementById('rpt-start-date-input')?.value || '';
+    const evDateStr      = document.getElementById('ev-date')?.value || '';
+    const startDate      = startDateInput || evDateStr;
     const summaryEl = document.getElementById('rpt-summary-text');
     if (!summaryEl) return;
     const DAY = ['日','月','火','水','木','金','土'];
