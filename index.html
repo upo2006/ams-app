@@ -3208,8 +3208,8 @@ window.addEventListener('message',function(e){
       const startDate = document.getElementById('ev-date').value;
       if (startDate) _repeatWeekdaysTemp = [new Date(startDate + 'T00:00:00').getDay()];
     }
-    if (mode === 'weekly') _autoFillWeeklyStartDate();
     renderRepeatPopup();
+    if (mode === 'weekly') _autoFillWeeklyStartDate();
   }
 
   function renderRepeatPopup() {
@@ -3251,8 +3251,8 @@ window.addEventListener('message',function(e){
     } else {
       _repeatWeekdaysTemp.push(wd);
     }
-    _autoFillWeeklyStartDate();
     renderRepeatPopup();
+    _autoFillWeeklyStartDate();
   }
 
   function onRepeatStartDateChange() {
