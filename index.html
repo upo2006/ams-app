@@ -3334,42 +3334,14 @@ window.addEventListener('message',function(e){
   }
 
   function clearRepeat() {
-    // まずモーダルを確実に閉じる
-    const rModal = document.getElementById('repeat-modal');
-    if (rModal) { rModal.style.display = 'none'; rModal.classList.add('hidden'); }
-    const si = _mStack.lastIndexOf('repeat-modal');
-    if (si >= 0) _mStack.splice(si, 1);
-    if (history.state?._mid === 'repeat-modal') history.replaceState(null, '');
-    // 確定値もリセット
-    _repeatMode       = '';
-    _repeatInterval   = 1;
-    _repeatWeekdays   = [];
-    _repeatMonthBasis = 'date';
-    _repeatEndType    = 'none';
-    _repeatEndDate    = '';
-    _repeatStartDate  = '';
-    // temp値もリセット
-    _repeatModeTemp      = '';
-    _repeatIntervalTemp  = 1;
-    _repeatWeekdaysTemp  = [];
-    _repeatMonthBasisTemp = 'date';
-    _repeatEndTypeTemp   = 'none';
-    _repeatEndDateTemp   = '';
-    _repeatStartDateTemp = '';
-    // DOM リセット
-    const intvEl = document.getElementById('rpt-interval-input');
-    if (intvEl) intvEl.value = 1;
-    const endDateEl = document.getElementById('rpt-end-date-input');
-    if (endDateEl) endDateEl.value = '';
-    const startDateEl = document.getElementById('rpt-start-date-input');
-    if (startDateEl) startDateEl.value = '';
-    const endRadio = document.querySelector('input[name="rpt-end"][value="none"]');
-    if (endRadio) endRadio.checked = true;
-    const basisRadio = document.querySelector('input[name="rpt-basis"][value="date"]');
-    if (basisRadio) basisRadio.checked = true;
-    // 🔁ボタン表示を更新
+    // 全変数リセット（確定値 + temp値）
+    _repeatMode = ''; _repeatInterval = 1; _repeatWeekdays = [];
+    _repeatMonthBasis = 'date'; _repeatEndType = 'none'; _repeatEndDate = ''; _repeatStartDate = '';
+    _repeatModeTemp = ''; _repeatIntervalTemp = 1; _repeatWeekdaysTemp = [];
+    _repeatMonthBasisTemp = 'date'; _repeatEndTypeTemp = 'none'; _repeatEndDateTemp = ''; _repeatStartDateTemp = '';
     updateRepeatBtn();
     updateSaveBtnText();
+    closeRepeatModal();
   }
 
   function confirmRepeat() {
