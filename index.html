@@ -3139,6 +3139,9 @@ window.addEventListener('message',function(e){
         // body の余白を除去
         document.body.style.margin = '0';
         document.body.style.padding = '0';
+        // 上下余白を 8px に設定
+        const mainEl = document.querySelector('main');
+        if (mainEl) { mainEl.style.paddingTop = '8px'; mainEl.style.paddingBottom = '8px'; }
         await loadEvents();
         // ResizeObserver で高さ変化を親ページに通知
         const sendHeight = () => {
