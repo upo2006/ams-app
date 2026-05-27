@@ -3719,13 +3719,16 @@ window.addEventListener('message',function(e){
         }
         await loadEvents();
         document.getElementById('loading-screen')?.classList.add('hidden');
-        // ResizeObserver で高さ変化を親ページに通知（main の高さを基準にする）
+        // ResizeObserver で高さ変化を親ページに通知
+        // getBoundingClientRect().height を使用（iOS Safariでscrollheightが過大になる問題を回避）
         const sendHeight = () => {
           const target = document.querySelector('main');
-          const h = target ? target.scrollHeight : document.body.scrollHeight;
-          window.parent.postMessage({ type: 'ams-resize', height: h }, '*');
+          if (!target) return;
+          const h = Math.ceil(target.getBoundingClientRect().height);
+          if (h > 0) window.parent.postMessage({ type: 'ams-resize', height: h }, '*');
         };
         sendHeight();
+        setTimeout(sendHeight, 300); // モバイル描画完了後に再送
         new ResizeObserver(sendHeight).observe(mainEl || document.body);
         return;
       }
