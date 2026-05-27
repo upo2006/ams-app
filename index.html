@@ -1528,11 +1528,12 @@
     const link = base.replace(/\/?$/, '/') + '?view=embed#' + buildHashString(cfg);
     document.getElementById('embed-link-url').value = link;
     document.getElementById('embed-iframe-code').value =
-`<iframe id="ams-embed" src="${link}" width="100%" height="600" frameborder="0" style="border-radius:12px;display:block;"></iframe>
+`<iframe id="ams-embed" src="${link}" width="100%" height="500" frameborder="0" scrolling="no" style="border-radius:12px;display:block;overflow:hidden;"></iframe>
 <script>
 window.addEventListener('message',function(e){
-  if(e.data&&e.data.type==='ams-resize'){
-    document.getElementById('ams-embed').style.height=e.data.height+'px';
+  if(e.data&&e.data.type==='ams-resize'&&e.data.height){
+    var f=document.getElementById('ams-embed');
+    if(f)f.style.height=e.data.height+'px';
   }
 });
 <\/script>`;
@@ -3709,12 +3710,12 @@ window.addEventListener('message',function(e){
         document.body.style.padding = '0';
         const appEl = document.getElementById('app');
         if (appEl) { appEl.style.minHeight = '0'; appEl.style.height = 'auto'; }
-        // 上下余白を 8px に設定（pb-4 クラスを除去してから上書き）
+        // 上下余白を最小化（pb-4 クラスを除去してから上書き）
         const mainEl = document.querySelector('main');
         if (mainEl) {
           mainEl.classList.remove('pb-4');
-          mainEl.style.setProperty('padding-top',    '16px', 'important');
-          mainEl.style.setProperty('padding-bottom', '4px', 'important');
+          mainEl.style.setProperty('padding-top',    '8px', 'important');
+          mainEl.style.setProperty('padding-bottom', '0px', 'important');
         }
         await loadEvents();
         document.getElementById('loading-screen')?.classList.add('hidden');
