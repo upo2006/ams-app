@@ -1691,10 +1691,13 @@ window.addEventListener('message',function(e){
           setStatus(status, '有効なサブスクリプションが見つかりません', 'error');
           return;
         }
-        closeLoginModal();
-        openSetupModal();
-        return;
-      }
+      // ログインモーダルを閉じる（history.back()なし）
+      document.getElementById('login-modal').classList.add('hidden');
+      const _li2 = _mStack.lastIndexOf('login-modal');
+      if (_li2 >= 0) _mStack.splice(_li2, 1);
+      setAdminMode(true);
+      openSetupModal();
+      return;
       // ─── 通常ログイン ──────────────────────────────────────────────────
       const { error } = await Promise.race([
         getAmsAuthClient().auth.signInWithPassword({ email, password }),
