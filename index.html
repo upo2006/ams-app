@@ -1715,9 +1715,17 @@ window.addEventListener('message',function(e){
         setStatus(status, '有効なサブスクリプションが見つかりません', 'error');
         return;
       }
-      closeLoginModal();
+      // ログインモーダルを閉じる（history.back() を呼ばず、他モーダルが閉じるのを防ぐ）
+      document.getElementById('login-modal').classList.add('hidden');
+      const _li = _mStack.lastIndexOf('login-modal');
+      if (_li >= 0) _mStack.splice(_li, 1);
       setAdminMode(true);
-      await loadEvents();
+      // Supabase 未設定なら接続設定を開く、設定済みならイベントを読み込む
+      if (!supabaseClient) {
+        openSetupModal();
+      } else {
+        await loadEvents();
+      }
     } catch(e) {
       setStatus(status, e.message === 'timeout' ? 'タイムアウトしました' : 'ログインに失敗しました', 'error');
     } finally {
