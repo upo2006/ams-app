@@ -958,35 +958,65 @@
 
 <!-- ══ 管理者ログインモーダル ══════════════════════════════════════════ -->
 <div id="login-modal" class="fixed inset-0 z-[200] hidden">
-  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeLoginModal()"></div>
+  <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
   <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-sm bg-white rounded-2xl shadow-2xl overflow-auto max-h-full">
-    <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-6 py-5 rounded-t-2xl flex items-start justify-between">
-      <div>
-        <h2 class="text-xl font-black">🔑 管理者ログイン</h2>
-        <p class="text-sm text-white/80 mt-1">イベントの追加・編集ができます</p>
-      </div>
-      <button onclick="closeLoginModal()" class="text-white/70 hover:text-white text-2xl leading-none ml-3 shrink-0">×</button>
+    <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-6 py-6 rounded-t-2xl text-center">
+      <div class="text-4xl mb-2">📅</div>
+      <h2 class="text-xl font-black">ATTENDANCE MANAGEMENT</h2>
+      <p class="text-sm text-white/80 mt-1">ログインしてください</p>
     </div>
     <div class="p-6 space-y-4">
       <div>
         <label class="block text-gray-700 text-sm font-bold mb-1">メールアドレス</label>
-        <input id="login-email" type="email" placeholder="admin@example.com"
-          class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+        <input id="login-email" type="email" placeholder="email@example.com"
+          class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
       </div>
       <div>
         <label class="block text-gray-700 text-sm font-bold mb-1">パスワード</label>
         <div class="relative">
           <input id="login-password" type="password" placeholder="パスワード"
-            class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+            class="w-full border border-gray-300 rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
           <button type="button" onclick="togglePw()" id="pw-eye"
             class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none">👁</button>
         </div>
       </div>
-      <div id="login-status" class="hidden text-sm text-red-600 font-medium"></div>
+      <div id="login-status" class="hidden"></div>
       <button onclick="handleLogin()" id="login-btn-submit"
-        class="w-full bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-xl transition-colors">
+        class="w-full bg-red-600 hover:bg-red-700 text-white font-black py-3 rounded-xl transition-colors">
         <span id="login-btn-text">ログイン</span>
         <span id="login-btn-load" class="hidden">ログイン中…</span>
+      </button>
+      <p class="text-center text-sm text-gray-500 pt-1">
+        <button type="button" onclick="handleForgotPassword()" class="text-red-600 hover:underline">パスワードを忘れた方はこちら</button>
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ パスワードリセットモーダル ════════════════════════════════════ -->
+<div id="reset-password-modal" class="fixed inset-0 z-[200] hidden">
+  <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
+  <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-sm bg-white rounded-2xl shadow-2xl overflow-auto max-h-full">
+    <div class="bg-gradient-to-r from-red-700 to-red-600 text-white px-6 py-6 rounded-t-2xl text-center">
+      <div class="text-4xl mb-2">🔑</div>
+      <h2 class="text-xl font-black">パスワードの再設定</h2>
+      <p class="text-sm text-white/80 mt-1">新しいパスワードを入力してください</p>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="block text-sm font-bold text-gray-700 mb-1">新しいパスワード</label>
+        <input id="reset-pw1" type="password" placeholder="6文字以上"
+          class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
+      </div>
+      <div>
+        <label class="block text-sm font-bold text-gray-700 mb-1">パスワード（確認）</label>
+        <input id="reset-pw2" type="password" placeholder="もう一度入力"
+          class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
+      </div>
+      <div id="reset-pw-status" class="hidden"></div>
+      <button onclick="handleResetPassword()"
+        class="w-full bg-red-600 hover:bg-red-700 text-white font-black py-3 rounded-xl transition-colors">
+        パスワードを更新する
       </button>
     </div>
   </div>
@@ -1699,6 +1729,41 @@ window.addEventListener('message',function(e){
     document.getElementById('settings-menu')?.classList.add('hidden');
     try { await Promise.race([getAmsAuthClient().auth.signOut(), new Promise(r => setTimeout(r, 3000))]); } catch(e) {}
     setAdminMode(false);
+  }
+
+  function showResetPasswordModal() {
+    document.getElementById('reset-password-modal')?.classList.remove('hidden');
+  }
+
+  async function handleForgotPassword() {
+    const email = document.getElementById('login-email')?.value.trim();
+    const status = document.getElementById('login-status');
+    if (!email) { setStatus(status, 'メールアドレスを入力してください', 'error'); return; }
+    try {
+      const { error } = await getAmsAuthClient().auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://upo2006.github.io/ams-app/'
+      });
+      if (error) { setStatus(status, '送信に失敗しました', 'error'); return; }
+      setStatus(status, 'パスワードリセットメールを送信しました', 'info');
+    } catch(e) {
+      setStatus(status, '送信に失敗しました', 'error');
+    }
+  }
+
+  async function handleResetPassword() {
+    const pw1 = document.getElementById('reset-pw1')?.value;
+    const pw2 = document.getElementById('reset-pw2')?.value;
+    const statusEl = document.getElementById('reset-pw-status');
+    if (!pw1 || pw1.length < 6) { setStatus(statusEl, '6文字以上のパスワードを入力してください', 'error'); return; }
+    if (pw1 !== pw2) { setStatus(statusEl, 'パスワードが一致しません', 'error'); return; }
+    try {
+      const { error } = await getAmsAuthClient().auth.updateUser({ password: pw1 });
+      if (error) { setStatus(statusEl, '更新に失敗しました', 'error'); return; }
+      setStatus(statusEl, 'パスワードを更新しました。再ログインしてください', 'info');
+      setTimeout(() => { getAmsAuthClient().auth.signOut(); location.href = location.pathname; }, 2000);
+    } catch(e) {
+      setStatus(statusEl, '更新に失敗しました', 'error');
+    }
   }
 
   function setAdminMode(admin) {
@@ -3615,6 +3680,11 @@ window.addEventListener('message',function(e){
   // ─── 起動 ────────────────────────────────────────────────────────────
   (async () => {
     try {
+      // パスワードリセット検出（メールのリンクからアクセスされた場合）
+      getAmsAuthClient().auth.onAuthStateChange((event) => {
+        if (event === 'PASSWORD_RECOVERY') { showResetPasswordModal(); }
+      });
+
       const params       = new URLSearchParams(location.search);
       const isParentMode = params.get('view') === 'parent';
       const isEmbedMode  = params.get('view') === 'embed';
