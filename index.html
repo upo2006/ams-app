@@ -1698,12 +1698,13 @@ window.addEventListener('message',function(e){
       setAdminMode(true);
       openSetupModal();
       return;
+      }
       // ─── 通常ログイン ──────────────────────────────────────────────────
-      const { error } = await Promise.race([
+      const { error: loginError } = await Promise.race([
         getAmsAuthClient().auth.signInWithPassword({ email, password }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 30000))
       ]);
-      if (error) { setStatus(status, 'メールアドレスまたはパスワードが違います', 'error'); return; }
+      if (loginError) { setStatus(status, 'メールアドレスまたはパスワードが違います', 'error'); return; }
       // サブスクリプション確認
       setStatus(status, 'サブスクリプション確認中...', 'info');
       let subOk = false;
