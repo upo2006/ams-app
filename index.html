@@ -1741,6 +1741,7 @@ window.addEventListener('message',function(e){
     document.getElementById('settings-menu')?.classList.add('hidden');
     try { await Promise.race([getAmsAuthClient().auth.signOut(), new Promise(r => setTimeout(r, 3000))]); } catch(e) {}
     setAdminMode(false);
+    openLoginModal();
   }
 
   function showResetPasswordModal() {
