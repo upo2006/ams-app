@@ -1740,8 +1740,7 @@ window.addEventListener('message',function(e){
   async function handleLogout() {
     document.getElementById('settings-menu')?.classList.add('hidden');
     try { await Promise.race([getAmsAuthClient().auth.signOut(), new Promise(r => setTimeout(r, 3000))]); } catch(e) {}
-    setAdminMode(false);
-    openLoginModal();
+    location.href = location.pathname + '?setup=1';
   }
 
   function showResetPasswordModal() {
